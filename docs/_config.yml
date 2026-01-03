@@ -3,7 +3,7 @@ description: A real-time, on-device web dashboard library for ESP32/ESP8266 with
 url: "https://aaronbeckmann.github.io"
 baseurl: "/ESP-DashboardPlus"
 
-remote_theme: pages-themes/midnight@v0.2.0
+remote_theme: pages-themes/cayman
 plugins:
   - jekyll-remote-theme
 
