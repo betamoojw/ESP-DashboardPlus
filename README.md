@@ -3,6 +3,8 @@
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-Library-orange?logo=platformio)](https://platformio.org/lib/show/ESP-DashboardPlus)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![ESP32](https://img.shields.io/badge/ESP32-Supported-green.svg)](https://www.espressif.com/en/products/socs/esp32)
+[![ESP32 S3](https://img.shields.io/badge/ESP32S3-Supported-green.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
+[![ESP32 C3](https://img.shields.io/badge/ESP32C3-Supported-green.svg)](https://www.espressif.com/en/products/socs/esp32-c3)
 [![ESP8266](https://img.shields.io/badge/ESP8266-Supported-green.svg)](https://www.espressif.com/en/products/socs/esp8266)
 
 A real-time, on-device web dashboard library for ESP32/ESP8266 microcontrollers. Create beautiful, responsive dashboards with minimal code using WebSocket-based communication.
