@@ -183,16 +183,46 @@ def main():
     else:
         lib_root = get_lib_root()
 
-    html_path = lib_root / 'extras' / 'dashboard.html'
+    # Determine HTML path candidates (local extras first, then installed library path in .pio/libdeps/<env>)
+    candidates = []
+    candidates.append(lib_root / 'extras' / 'dashboard.html')
+
+    # If running under PlatformIO, try .pio/libdeps/<env>/ESP-DashboardPlus/extras/dashboard.html
+    try:
+        if 'env' in globals() and 'PIOENV' in env:
+            pioenv = env['PIOENV']
+            libdeps_dir = lib_root / '.pio' / 'libdeps' / pioenv
+            candidates.append(libdeps_dir / 'ESP-DashboardPlus' / 'extras' / 'dashboard.html')
+            # Also handle directories named like 'ESP-DashboardPlus*' (case-insensitive)
+            if libdeps_dir.exists():
+                for d in libdeps_dir.iterdir():
+                    if d.is_dir() and d.name.lower().startswith('esp-dashboardplus'):
+                        candidates.append(d / 'extras' / 'dashboard.html')
+    except Exception:
+        pass
+
+    # Select first existing candidate
+    html_path = None
+    for c in candidates:
+        if c.exists():
+            html_path = c
+            break
+
+    if html_path:
+        print(f"[ESP-DashboardPlus] Using HTML file: {html_path}")
+    else:
+        html_path = lib_root / 'extras' / 'dashboard.html'  # fallback
+        print(f"[ESP-DashboardPlus] Warning: extras/dashboard.html not found in local or libdeps locations; will check {html_path}")
+
     header_path = lib_root / 'src' / 'dashboard_html.h'
     hash_path = lib_root / 'src' / '.dashboard_hash'
-    
+
     # Check if regeneration is needed
     if should_regenerate(html_path, hash_path, header_path):
         if html_path.exists():
             generate_header(html_path, header_path, hash_path)
         else:
-            print(f"[ESP-DashboardPlus] Warning: extras/dashboard.html not found, skipping header generation")
+            print(f"[ESP-DashboardPlus] Warning: {html_path} not found, skipping header generation")
     else:
         print(f"[ESP-DashboardPlus] src/dashboard_html.h is up-to-date")
 
