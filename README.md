@@ -6,7 +6,7 @@
 [![ESP32 S3](https://img.shields.io/badge/ESP32S3-Supported-green.svg)](https://www.espressif.com/en/products/socs/esp32-s3)
 [![ESP32 C3](https://img.shields.io/badge/ESP32C3-Supported-green.svg)](https://www.espressif.com/en/products/socs/esp32-c3)
 
-A real-time, on-device web dashboard library for ESP32/ESP8266 microcontrollers. Create beautiful, responsive dashboards with minimal code using WebSocket-based communication.
+A real-time, on-device web dashboard library for ESP32 microcontrollers. Create beautiful, responsive dashboards with minimal code using WebSocket-based communication.
 
 <p align="center">
   <img src="docs/assets/dashboard-preview.png" alt="ESP Dashboard Preview" width="800">
