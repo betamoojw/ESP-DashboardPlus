@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        env: [esp32dev, esp32-s3, esp32-c3, esp8266]
+        env: [esp32dev, esp32-s3, esp32-c3]
 
     steps:
       - name: Checkout

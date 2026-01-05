@@ -850,9 +850,12 @@
      size_t _otaSize;
      size_t _otaReceived;
      
-     // HTML data (for PROGMEM)
-     const uint8_t* _htmlData;
-     size_t _htmlSize;
+    // HTML data (for PROGMEM)
+    const uint8_t* _htmlData;
+    size_t _htmlSize;
+    
+    // Heartbeat tracking
+    unsigned long _lastHeartbeat;
      
      void handleWebSocketMessage(AsyncWebSocketClient* client, const String& message) {
          StaticJsonDocument<1024> doc;
@@ -961,15 +964,28 @@
              if (bits >= 8) {
                  bits -= 8;
                  output[j++] = (buf >> bits) & 0xFF;
-             }
-         }
-     }
- 
- public:
-     ESPDashboardPlus(const String& title = "ESP32 Dashboard") 
-         : _title(title), _server(nullptr), _ws(nullptr), 
-           _otaInProgress(false), _otaSize(0), _otaReceived(0),
-           _htmlData(nullptr), _htmlSize(0) {}
+            }
+        }
+    }
+    
+    void sendHeartbeat() {
+        if (!_ws) return;
+        
+        // Send a minimal heartbeat message
+        StaticJsonDocument<64> doc;
+        doc["type"] = "heartbeat";
+        doc["timestamp"] = millis();
+        
+        String output;
+        serializeJson(doc, output);
+        _ws->textAll(output);
+    }
+
+public:
+    ESPDashboardPlus(const String& title = "ESP32 Dashboard") 
+        : _title(title), _server(nullptr), _ws(nullptr), 
+          _otaInProgress(false), _otaSize(0), _otaReceived(0),
+          _htmlData(nullptr), _htmlSize(0), _lastHeartbeat(0) {}
      
      ~ESPDashboardPlus() {
          for (auto& pair : _cards) {
@@ -1022,11 +1038,18 @@
          Serial.println("[Dashboard] Initialized with PROGMEM HTML");
      }
      
-     void loop() {
-         if (_ws) {
-             _ws->cleanupClients();
-         }
-     }
+    void loop() {
+        if (_ws) {
+            _ws->cleanupClients();
+            
+            // Send heartbeat every 2.5 seconds
+            unsigned long now = millis();
+            if (now - _lastHeartbeat >= 2500) {
+                sendHeartbeat();
+                _lastHeartbeat = now;
+            }
+        }
+    }
      
      void setTitle(const String& title) { _title = title; }
      
