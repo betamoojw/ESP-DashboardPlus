@@ -7,6 +7,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     
+    /* DARK MODE (default) - Comment out this block to disable dark mode */
     :root {
       --bg: #0f1419;
       --bg-secondary: #151b23;
@@ -32,7 +33,37 @@
       --gradient-glow: radial-gradient(ellipse at center, var(--primary-glow), transparent 70%);
     }
     
+    /* LIGHT MODE - Uncomment this block and comment out the dark mode block above to enable light mode */
+    /*
+    :root {
+      --bg: #f5f7fa;
+      --bg-secondary: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f8f9fa;
+      --text: #1a1f2e;
+      --text-muted: #6b7280;
+      --primary: #00d4aa;
+      --primary-glow: rgba(0, 212, 170, 0.15);
+      --primary-dark: #00a88a;
+      --success: #22c55e;
+      --success-glow: rgba(34, 197, 94, 0.15);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.15);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.15);
+      --info: #3b82f6;
+      --info-glow: rgba(59, 130, 246, 0.15);
+      --border: #e5e7eb;
+      --radius: 12px;
+      --shadow: 0 8px 32px -8px rgba(0,0,0,0.1);
+      --gradient-primary: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      --gradient-glow: radial-gradient(ellipse at center, var(--primary-glow), transparent 70%);
+    }*/
+    
+    
     body {
+      display: flex;
+      flex-direction: column;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
@@ -45,14 +76,16 @@
       background-size: 100% 100%, 50px 50px, 50px 50px;
     }
     
-    .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+    .container { max-width: 1400px; margin: 0; padding: 0 20px;}
+
+    main.container { margin-top: 32px; }
     
     /* Header */
     header {
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(15, 20, 25, 0.85);
+      background: var(--bg-secondary);
       backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
       padding: 16px 0;
@@ -111,11 +144,6 @@
       50% { opacity: 0.7; transform: scale(0.9); }
     }
     
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
     @keyframes slideUp {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
@@ -127,7 +155,7 @@
     }
     
     /* Main */
-    main { padding: 32px 0; }
+    main { padding: 32px 0; flex: 1 0 auto; flex-direction: row;}
     
     .section-title {
       font-size: 0.7rem;
@@ -164,8 +192,31 @@
       padding: 20px;
       box-shadow: var(--shadow);
       transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-      animation: fadeIn 0.4s ease-out;
       overflow: hidden;
+    }
+
+    /* Small update indicator (does not affect layout) */
+    .update-indicator {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary-glow);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .update-indicator.flash {
+      animation: updateFlash 0.7s ease-out forwards;
+    }
+
+    @keyframes updateFlash {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.4); }
+      100% { opacity: 0; transform: scale(0.9); }
     }
     
     .card::before {
@@ -179,15 +230,7 @@
       opacity: 0;
       transition: opacity 0.3s;
     }
-    
-    .card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow), 0 0 40px rgba(0, 212, 170, 0.08);
-      border-color: rgba(0, 212, 170, 0.3);
-    }
-    
-    .card:hover::before { opacity: 1; }
-    
+
     .card-title {
       font-size: 0.8rem;
       font-weight: 600;
@@ -828,8 +871,7 @@
     /* Footer */
     footer {
       border-top: 1px solid var(--border);
-      padding: 28px 0;
-      margin-top: 40px;
+      padding: 10px 0;
       text-align: center;
     }
     
@@ -889,7 +931,7 @@
 
   <footer>
     <div class="container">
-      <p><strong>ESP32 Dashboard Library</strong> • Real-time WebSocket Communication</p>
+      <p>Made with <strong><a href="https://github.com/aaronbeckmann/ESP-DashboardPlus" style="color: var(--primary); text-decoration: none;" target="_blank">ESP32-DashboardPlus</a></strong></p>
     </div>
   </footer>
 
@@ -919,20 +961,63 @@
     let ws = null;
     let cards = {};
     let reconnectTimeout = null;
+    let lastMessageTime = null;
+    let messageTimeoutCheck = null;
 
     function connect() {
+      // Close existing connection if any
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      // Clear any existing reconnection timeout
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+      updateStatus(false);
       const wsUrl = 'ws://' + window.location.hostname + '/ws';
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         console.log('[Dashboard] Connected');
         updateStatus(true);
+        lastMessageTime = Date.now();
+        // Clear any pending reconnection
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout);
+          reconnectTimeout = null;
+        }
+        // Start checking for message timeout
+        if (messageTimeoutCheck) clearInterval(messageTimeoutCheck);
+        messageTimeoutCheck = setInterval(() => {
+          if (lastMessageTime && Date.now() - lastMessageTime > 5000) {
+            updateStatus(false);
+            // Try to reconnect if WebSocket is closed, closing, or not receiving messages
+            if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+              console.log('[Dashboard] WebSocket closed, attempting to reconnect...');
+              if (reconnectTimeout) clearTimeout(reconnectTimeout);
+              reconnectTimeout = setTimeout(connect, 3000);
+            } else if (ws.readyState === WebSocket.OPEN) {
+              // WebSocket appears open but not receiving messages - close and reconnect
+              console.log('[Dashboard] No messages received, closing and reconnecting...');
+              ws.close();
+              if (reconnectTimeout) clearTimeout(reconnectTimeout);
+              reconnectTimeout = setTimeout(connect, 3000);
+            }
+          }
+        }, 1000);
         ws.send(JSON.stringify({ type: 'init' }));
       };
 
       ws.onclose = () => {
         console.log('[Dashboard] Disconnected');
         updateStatus(false);
+        lastMessageTime = null;
+        if (messageTimeoutCheck) {
+          clearInterval(messageTimeoutCheck);
+          messageTimeoutCheck = null;
+        }
         reconnectTimeout = setTimeout(connect, 3000);
       };
 
@@ -978,6 +1063,10 @@
     }
 
     function handleMessage(msg) {
+      //console.log('[Dashboard] Message:', msg);
+      // Update last message time and status
+      lastMessageTime = Date.now();
+      updateStatus(true);
       switch (msg.type) {
         case 'init':
           if (msg.cards) {
@@ -1028,7 +1117,7 @@
       switch (type) {
         case 'stat':
           return `
-            <div class="card" data-id="${id}">
+            <div class="card" data-id="${id}"><div class="update-indicator"></div>
               <div class="card-title">${config.title || 'Value'}</div>
               <div>
                 <span class="stat-value">${config.value || 0}</span>
@@ -1041,7 +1130,7 @@
         case 'status':
           const iconMap = { wifi: '📶', check: '✓', error: '✕', warning: '⚠', info: 'ℹ', power: '⚡', sync: '🔄', cloud: '☁', lock: '🔒', unlock: '🔓' };
           return `
-            <div class="card" data-id="${id}">
+            <div class="card" data-id="${id}"><div class="update-indicator"></div>
               <div class="card-title">${config.title || 'Status'}</div>
               <div class="status-card">
                 <div class="status-icon ${config.variant || 'primary'}">
@@ -1057,7 +1146,7 @@
           
         case 'chart':
           return `
-            <div class="card" data-id="${id}">
+            <div class="card" data-id="${id}"><div class="update-indicator"></div>
               <div class="chart-header">
                 <div class="card-title">${config.title || 'Chart'}</div>
                 <div style="display:flex;gap:8px;align-items:center">
@@ -1081,7 +1170,7 @@
           
         case 'button':
           return `
-            <div class="card" data-id="${id}">
+            <div class="card" data-id="${id}"><div class="update-indicator"></div>
               <div class="card-title">${config.title || 'Button'}</div>
               <button class="btn btn-${config.variant || 'primary'}" onclick="sendAction('${id}', 'click')">
                 ${config.icon ? `<span>${config.icon}</span>` : ''}
@@ -1092,7 +1181,7 @@
           
         case 'link':
           return `
-            <div class="card" data-id="${id}">
+            <div class="card" data-id="${id}"><div class="update-indicator"></div>
               <div class="card-title">${config.title || 'Link'}</div>
               <a href="${config.url || '#'}" target="${config.target || '_blank'}" class="btn btn-${config.variant || 'primary'}" ${config.url ? '' : 'onclick="event.preventDefault()"'}>
                 ${config.icon ? `<span>${config.icon}</span>` : ''}
@@ -1104,7 +1193,7 @@
           
         case 'timezone':
           return `
-            <div class="card" data-id="${id}">
+            <div class="card" data-id="${id}"><div class="update-indicator"></div>
               <div class="card-title">${config.title || 'Timezone'}</div>
               <div style="margin-bottom:12px">
                 <span class="stat-value" style="font-size:1.25rem" id="tz-display-${id}">${config.value || 'Not set'}</span>
@@ -1118,7 +1207,7 @@
           
         case 'date':
           return `
-            <div class="card" data-id="${id}">
+            <div class="card" data-id="${id}"><div class="update-indicator"></div>
               <div class="card-title">${config.title || 'Date'}</div>
               <input type="${config.includeTime ? 'datetime-local' : 'date'}" class="date-input" id="date-${id}" value="${config.value || ''}" onchange="changeDate('${id}', this.value)" ${config.min ? `min="${config.min}"` : ''} ${config.max ? `max="${config.max}"` : ''}>
             </div>
@@ -1126,7 +1215,7 @@
           
         case 'toggle':
           return `
-            <div class="card" data-id="${id}">
+            <div class="card" data-id="${id}"><div class="update-indicator"></div>
               <div class="toggle-container">
                 <div>
                   <div class="card-title">${config.title || 'Toggle'}</div>
@@ -1382,9 +1471,98 @@
       const card = cards[id];
       if (!card) return;
       const el = document.querySelector(`[data-id="${id}"]`);
-      if (!el) return;
-      el.outerHTML = renderCard(card);
-      initializeCards();
+      if (!el) {
+        // Not in DOM, render whole dashboard
+        renderDashboard();
+        return;
+      }
+
+      try {
+        switch (card.type) {
+          case 'stat': {
+            const valueEl = el.querySelector('.stat-value');
+            const unitEl = el.querySelector('.stat-unit');
+            if (valueEl) valueEl.textContent = card.config.value ?? 0;
+            if (unitEl) unitEl.textContent = card.config.unit ?? '';
+
+            const trendEl = el.querySelector('.stat-trend');
+            if (card.config.trend) {
+              if (trendEl) {
+                trendEl.className = `stat-trend ${card.config.trend}`;
+                trendEl.textContent = `${card.config.trend === 'up' ? '↑' : '↓'} ${card.config.trendValue || ''}`;
+              } else {
+                const t = document.createElement('div');
+                t.className = `stat-trend ${card.config.trend}`;
+                t.textContent = `${card.config.trend === 'up' ? '↑' : '↓'} ${card.config.trendValue || ''}`;
+                el.appendChild(t);
+              }
+            } else if (trendEl) {
+              trendEl.remove();
+            }
+            break;
+          }
+
+          case 'status': {
+            const lbl = el.querySelector('.status-label');
+            const msg = el.querySelector('.status-message');
+            const icon = el.querySelector('.status-icon');
+            if (lbl) lbl.textContent = card.config.label || 'Status';
+            if (msg) msg.textContent = card.config.message || '';
+            if (icon) {
+              icon.className = 'status-icon ' + (card.config.variant || 'primary');
+              const iconMap = { wifi: '📶', check: '✓', error: '✕', warning: '⚠', info: 'ℹ', power: '⚡', sync: '🔄', cloud: '☁', lock: '🔒', unlock: '🔓' };
+              icon.innerHTML = card.config.icon ? (iconMap[card.config.icon] || card.config.icon) : '●';
+            }
+            break;
+          }
+
+          case 'chart': {
+            const container = el.querySelector('.chart-container');
+            if (container) {
+              container.innerHTML = `<svg class="chart-svg" viewBox="0 0 100 70" preserveAspectRatio="none"><defs><linearGradient id="chartGradient-${id}" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:var(--${card.config.color || 'primary'});stop-opacity:0.3"/><stop offset="100%" style="stop-color:var(--${card.config.color || 'primary'});stop-opacity:0"/></linearGradient></defs>${renderChartContent(id, card.config)}</svg>`;
+            }
+            break;
+          }
+
+          case 'console': {
+            const logsEl = el.querySelector('.console-logs');
+            if (logsEl) {
+              logsEl.innerHTML = renderConsoleLogs(card);
+            }
+            break;
+          }
+
+          case 'dropdown': {
+            const sel = el.querySelector('.dropdown-selected');
+            const menu = el.querySelector('.dropdown-menu');
+            if (sel) sel.textContent = card.config.value || card.config.placeholder || 'Select...';
+            if (menu) menu.innerHTML = (card.config.options || []).map(opt => `<div class="dropdown-item" onclick="selectDropdown('${id}','${opt.value}')">${opt.label||opt.value}</div>`).join('');
+            break;
+          }
+
+          case 'slider': {
+            const fill = el.querySelector('.slider-fill');
+            const valDisp = el.querySelector('.slider-container > div:last-child > div:nth-child(2)');
+            if (fill) {
+              const pct = Math.round(((card.config.value - (card.config.min||0))/((card.config.max||100)-(card.config.min||0)))*100);
+              fill.style.width = `${pct}%`;
+            }
+            if (valDisp) valDisp.textContent = card.config.value || 0;
+            break;
+          }
+
+          default:
+            // Fallback: re-render full card if we don't have an optimized path
+            el.outerHTML = renderCard(card);
+            break;
+        }
+
+        // Visual update indicator (small dot flash)
+        flashIndicator(el);
+      } catch (e) {
+        // On any error, safe fallback to re-render
+        el.outerHTML = renderCard(card);
+      }
     }
 
     function initializeCards() {
@@ -1394,6 +1572,20 @@
           document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
         }
       });
+    }
+
+    function flashIndicator(el) {
+      const dot = el.querySelector('.update-indicator');
+      if (!dot) return;
+      dot.classList.remove('flash');
+      // Force reflow so animation restarts reliably
+      void dot.offsetWidth;
+      dot.classList.add('flash');
+    }
+
+    function renderConsoleLogs(card) {
+      const logs = card.config.logs || [];
+      return logs.map(log => `<div class="console-log-entry"><div class="console-timestamp">${log.timestamp}</div><div class="console-level ${log.level}">${log.level}</div><div class="console-message ${log.level}">${escapeHtml(log.message)}</div></div>`).join('');
     }
 
     // Interactive handlers
@@ -1608,44 +1800,6 @@
 
     // Initialize
     connect();
-    
-    // Demo mode
-    setTimeout(() => {
-      if (Object.keys(cards).length === 0) {
-        cards = {
-          temp: { id: 'temp', type: 'stat', config: { title: 'Temperature', value: '23.5', unit: '°C', trend: 'up', trendValue: '+0.5°C' }},
-          humidity: { id: 'humidity', type: 'stat', config: { title: 'Humidity', value: '45', unit: '%' }},
-          status1: { id: 'status1', type: 'status', config: { title: 'System Status', icon: 'check', variant: 'success', label: 'All Systems Operational', message: 'Last check: 2 seconds ago' }},
-          chart1: { id: 'chart1', type: 'chart', config: { title: 'Temperature', chartType: 'area', color: 'primary', data: [22,23,24,23.5,24.2,25,24.8,25.5,26,25.2,24.8,25,25.3] }},
-          chart2: { id: 'chart2', type: 'chart', config: { title: 'Power Usage', chartType: 'bar', color: 'info', data: [30,45,28,52,38,42,55,48,62,58] }},
-          chart3: { id: 'chart3', type: 'chart', config: { title: 'Signal Strength', chartType: 'step', color: 'warning', data: [-45,-42,-48,-42,-38,-35,-40,-38,-35,-32] }},
-          led: { id: 'led', type: 'toggle', config: { title: 'LED Control', label: 'RGB LED', value: true }},
-          brightness: { id: 'brightness', type: 'slider', config: { title: 'Brightness', value: 75, min: 0, max: 100, step: 5, unit: '%' }},
-          color: { id: 'color', type: 'color', config: { title: 'LED Color', value: '#00D4AA' }},
-          gauge: { id: 'gauge', type: 'gauge', config: { title: 'CPU Usage', value: 42, min: 0, max: 100, unit: '%', thresholds: { warning: 60, danger: 85 }}},
-          wifi: { id: 'wifi', type: 'dropdown', config: { title: 'WiFi Mode', value: 'sta', options: [{ value: 'sta', label: 'Station Mode' }, { value: 'ap', label: 'Access Point' }, { value: 'apsta', label: 'AP + Station' }] }},
-          ssid: { id: 'ssid', type: 'input', config: { title: 'WiFi SSID', placeholder: 'Enter network name...' }},
-          timezone: { id: 'timezone', type: 'timezone', config: { title: 'Device Timezone', value: '', label: 'Get Browser Timezone' }},
-          date: { id: 'date', type: 'date', config: { title: 'Schedule Date', value: '', includeTime: true }},
-          link1: { id: 'link1', type: 'link', config: { title: 'Documentation', label: 'Open GitHub', url: 'https://github.com', variant: 'secondary', icon: '📚' }},
-          restart: { id: 'restart', type: 'action', config: { title: 'Device Control', label: 'Restart Device', variant: 'warning', confirmTitle: 'Restart Device?', confirmMessage: 'The device will restart and temporarily disconnect.' }},
-          ota: { id: 'ota', type: 'ota', config: { title: 'Firmware Update (OTA)', maxSize: 4 }},
-          save: { id: 'save', type: 'button', config: { title: 'Settings', label: 'Save Configuration', variant: 'primary' }}
-        };
-        renderDashboard();
-        
-        // Simulate live updates
-        setInterval(() => {
-          cards.temp.config.value = (22 + Math.random() * 4).toFixed(1);
-          cards.humidity.config.value = Math.round(40 + Math.random() * 20);
-          cards.gauge.config.value = Math.round(30 + Math.random() * 50);
-          cards.chart1.config.data = [...cards.chart1.config.data.slice(1), 22 + Math.random() * 5];
-          cards.chart2.config.data = [...cards.chart2.config.data.slice(1), 25 + Math.random() * 40];
-          cards.chart3.config.data = [...cards.chart3.config.data.slice(1), -50 + Math.random() * 25];
-          renderDashboard();
-        }, 3000);
-      }
-    }, 2000);
   </script>
 </body>
 </html>
