@@ -1547,7 +1547,7 @@
         reconnectTimeout = null;
       }
       updateStatus(false);
-      const wsUrl = 'ws://' + "192.168.178.101"+ '/ws';
+      const wsUrl = 'ws://' + window.location.hostname + '/ws';
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
