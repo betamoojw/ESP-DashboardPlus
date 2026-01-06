@@ -42,7 +42,7 @@ Add to your `platformio.ini`:
 
 ```ini
 lib_deps = 
-    ESP-DashboardPlus
+    aaronbeckmann/ESP-DashboardPlus@^1.0.0
 ```
 
 Or install via PlatformIO CLI:
