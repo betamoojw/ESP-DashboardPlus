@@ -872,6 +872,10 @@ private:
    // Firmware version info (for OTA tab)
    String _version;
    String _lastUpdate;
+   
+   // WebSocket message reassembly buffer for fragmented frames
+   uint8_t* _wsBuffer = nullptr;
+   size_t _wsBufferSize = 0;
     
     // Robust WebSocket JSON handler: parses exactly len bytes from data buffer
     void handleWebSocketMessage(AsyncWebSocketClient* client, const uint8_t* data, size_t len) {
@@ -1075,6 +1079,12 @@ public:
              delete pair.second;
          }
          _cards.clear();
+        
+        if (_wsBuffer) {
+            delete[] _wsBuffer;
+            _wsBuffer = nullptr;
+            _wsBufferSize = 0;
+        }
      }
  
 // Backwards compatibility alias
@@ -1110,14 +1120,36 @@ using ESPDashboard = ESPDashboardPlus;
                 Serial.printf("[Dashboard] Client #%u disconnected\n", client->id());
             } else if (type == WS_EVT_DATA) {
                 AwsFrameInfo* info = (AwsFrameInfo*)arg;
-                // Only handle complete text frames to avoid partial JSON
-                if (info->opcode == WS_TEXT && info->final && info->index == 0 && info->len == len) {
-                    handleWebSocketMessage(client, data, len);
-                } else if (info->opcode == WS_TEXT && info->final && (info->index + len) == info->len) {
-                    // In case AsyncWebSocket ever fragments frames, we should ideally
-                    // reassemble them; for now, ignore partial frames to avoid parse errors.
-                    // (Can be extended to accumulate into a buffer if needed.)
-                    handleWebSocketMessage(client, data, len);
+                if (info->opcode == WS_TEXT) {
+                    // Handle unfragmented frames directly
+                    if (info->final && info->index == 0 && info->len == len) {
+                        handleWebSocketMessage(client, data, len);
+                    } else {
+                        // Reassemble fragmented frames into a contiguous buffer
+                        if (info->index == 0) {
+                            // First fragment: allocate buffer for the full message length
+                            if (_wsBuffer) {
+                                delete[] _wsBuffer;
+                                _wsBuffer = nullptr;
+                                _wsBufferSize = 0;
+                            }
+                            _wsBufferSize = info->len;
+                            _wsBuffer = new uint8_t[_wsBufferSize];
+                        }
+                        
+                        // Copy this fragment into the correct offset
+                        if (_wsBuffer && (info->index + len) <= _wsBufferSize) {
+                            memcpy(_wsBuffer + info->index, data, len);
+                        }
+                        
+                        // Final fragment: parse the complete message
+                        if (info->final && _wsBuffer) {
+                            handleWebSocketMessage(client, _wsBuffer, _wsBufferSize);
+                            delete[] _wsBuffer;
+                            _wsBuffer = nullptr;
+                            _wsBufferSize = 0;
+                        }
+                    }
                 }
             }
         });
