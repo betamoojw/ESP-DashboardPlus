@@ -58,7 +58,7 @@ void loop() {
 
 ## Sensor Monitoring
 
-Monitor multiple sensors with charts and gauges.
+Monitor multiple sensors with charts and gauges, logging to the Console tab.
 
 ```cpp
 #include <WiFi.h>
@@ -79,7 +79,8 @@ void setup() {
     WiFi.begin("SSID", "PASSWORD");
     while (WiFi.status() != WL_CONNECTED) delay(500);
     
-    dashboard.begin(&server, DASHBOARD_HTML_DATA, DASHBOARD_HTML_SIZE);
+    // Enable Console tab for logging
+    dashboard.begin(&server, DASHBOARD_HTML_DATA, DASHBOARD_HTML_SIZE, true, true);
     
     // Stat cards
     StatCard* tempCard = dashboard.addStatCard("temp", "Temperature", "25.0", "°C");
@@ -100,9 +101,8 @@ void setup() {
     StatusCard* status = dashboard.addStatusCard("status", "System Status", StatusIcon::CHECK);
     status->setStatus(StatusIcon::CHECK, CardVariant::SUCCESS, "All Systems OK", "Last update: now");
     
-    // Console
-    dashboard.addConsoleCard("console", "Sensor Log", 50);
-    dashboard.logInfo("console", "Sensor monitoring started");
+    // Log to Console tab (no card needed)
+    dashboard.logInfo("Sensor monitoring started");
     
     server.begin();
 }
@@ -131,12 +131,12 @@ void loop() {
         dashboard.updateChartCard("temp-chart", temperature);
         dashboard.updateChartCard("humid-chart", humidity);
         
-        // Log readings
-        dashboard.logDebug("console", "T=" + String(temperature, 1) + "°C H=" + String(humidity, 0) + "%");
+        // Log readings to Console tab
+        dashboard.logDebug("T=" + String(temperature, 1) + "°C H=" + String(humidity, 0) + "%");
         
         // Check thresholds
         if (temperature > 30) {
-            dashboard.logWarning("console", "High temperature: " + String(temperature, 1) + "°C");
+            dashboard.logWarning("High temperature: " + String(temperature, 1) + "°C");
         }
     }
 }
@@ -311,7 +311,7 @@ void loop() {
 
 ## OTA Firmware Update
 
-Enable over-the-air firmware updates.
+Enable over-the-air firmware updates using the dedicated OTA tab.
 
 ```cpp
 #include <WiFi.h>
@@ -327,30 +327,18 @@ void setup() {
     WiFi.begin("SSID", "PASSWORD");
     while (WiFi.status() != WL_CONNECTED) delay(500);
     
-    dashboard.begin(&server, DASHBOARD_HTML_DATA, DASHBOARD_HTML_SIZE);
+    // Enable OTA and Console tabs
+    dashboard.begin(&server, DASHBOARD_HTML_DATA, DASHBOARD_HTML_SIZE, true, true);
     
-    // Firmware info
+    // Set firmware version info (displayed in OTA tab)
+    dashboard.setVersionInfo("1.0.0", "2024-01-15");
+    
+    // Firmware info card
     StatCard* version = dashboard.addStatCard("version", "Firmware Version", "1.0.0", "");
     
-    // OTA card
-    OTACard* ota = dashboard.addOTACard("ota", "Firmware Update", 4);
-    
-    ota->onProgress = [](size_t current, size_t total) {
-        int percent = (current * 100) / total;
-        Serial.printf("OTA Progress: %d%%\n", percent);
-    };
-    
-    ota->onComplete = [](bool success) {
-        if (success) {
-            Serial.println("OTA Success! Restarting...");
-        } else {
-            Serial.println("OTA Failed!");
-        }
-    };
-    
-    // Console for OTA logs
-    ConsoleCard* console = dashboard.addConsoleCard("console", "Update Log", 20);
-    dashboard.logInfo("console", "Ready for firmware update");
+    // Log to Console tab
+    dashboard.logInfo("Ready for firmware update");
+    dashboard.logInfo("Use the OTA tab to upload new firmware");
     
     server.begin();
 }
@@ -364,4 +352,4 @@ void loop() {
 
 ## Complete All-Cards Example
 
-See the `examples/basic/main.cpp` in the library for a complete example demonstrating all 16 card types.
+See the `examples/basic/main.cpp` in the library for a complete example demonstrating all 14 card types with Console tab logging.

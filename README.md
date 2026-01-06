@@ -15,14 +15,16 @@ A real-time, on-device web dashboard library for ESP32 microcontrollers. Create 
 ## ✨ Features
 
 - **🔌 Real-time Updates** - WebSocket-based communication for instant UI updates
-- **📊 16 Card Types** - Stats, charts, gauges, toggles, sliders, buttons, and more
-- **🎨 Modern Dark Theme** - Industrial IoT aesthetic with customizable colors
+- **📊 14 Card Types** - Stats, charts, gauges, toggles, sliders, buttons, and more
+- **🎨 Modern Dark Theme** - Industrial IoT aesthetic with light/dark mode support
 - **📱 Responsive Design** - Works on desktop and mobile browsers
 - **🗂️ Tabbed Interface** - Dashboard, Console, and OTA tabs in a single HTML file
-- **🔄 OTA Updates** - Dedicated firmware update page with device info
-- **📝 Console Logging** - Full-page console with filtering, export, and command input
-- **⚡ Optimized** - Gzip-compressed HTML stored in PROGMEM (~15KB)
+- **🔄 OTA Updates** - Dedicated firmware update tab with device info
+- **📝 Console Logging** - Full-page console tab with filtering, export, and command input
+- **⚡ Optimized** - Gzip-compressed HTML stored in PROGMEM (~18KB)
 - **🛠️ Easy Integration** - Simple C++ API with minimal boilerplate
+
+> **Note**: OTA and Console are available as **tabs only**, not dashboard cards. Configure visibility with `enableOTA` and `enableConsole` parameters in `begin()`.
 
 ## 📦 Installation
 
@@ -109,8 +111,13 @@ void loop() {
 | **DateCard** | Date/time picker | Scheduling, alarms |
 | **TimezoneCard** | Browser timezone detection | Time synchronization |
 | **StatusCard** | Icon + status message | Connection status, system health |
-| **ConsoleCard** | Timestamped log entries | Debugging, monitoring |
-| **OTACard** | Firmware update via browser | Over-the-air updates |
+
+### Tabs (not cards)
+
+| Tab | Description |
+|-----|-------------|
+| **Console** | Timestamped logging with filtering, export, and command input |
+| **OTA Update** | Firmware update via drag-and-drop with progress display |
 
 ## 📖 Documentation
 

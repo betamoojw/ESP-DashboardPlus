@@ -44,6 +44,8 @@ void begin(AsyncWebServer* server, const uint8_t* htmlData, size_t htmlSize,
 | `enableConsole` | `bool` | true | Show the Console tab |
 | `wsPath` | `String` | "/ws" | WebSocket path |
 
+> **Note**: OTA and Console functionality are available as **tabs only**, not dashboard cards. Use the `enableOTA` and `enableConsole` parameters to control tab visibility.
+
 > **Note on OTA support (ESP32)**  
 > To use the OTA update tab reliably, your ESP32 must use a partition table that provides **OTA app slots** (e.g. `ota_0`, `ota_1`) with enough space for your firmware.  
 > Common choices in Arduino / PlatformIO are partition schemes like `min_spiffs.csv` or other `*ota*.csv` variants that define at least one OTA partition.
@@ -231,21 +233,6 @@ StatusCard* addStatusCard(const String& id, const String& title,
                           StatusIcon icon = StatusIcon::INFO)
 ```
 
-### addConsoleCard()
-
-```cpp
-ConsoleCard* addConsoleCard(const String& id, const String& title = "Console Log", 
-                            int maxEntries = 100)
-```
-
-### addOTACard()
-
-```cpp
-OTACard* addOTACard(const String& id = "ota", 
-                    const String& title = "Firmware Update (OTA)", 
-                    int maxSize = 4)
-```
-
 ---
 
 ## Update Methods
@@ -317,76 +304,33 @@ void updateStatusCard(const String& id, StatusIcon icon, CardVariant variant,
 
 ## Console Logging Methods
 
-Serial.println-like API for logging to ConsoleCard or the Console tab.
+Log messages to the Console tab. Only works if `enableConsole = true` was set in `begin()`.
 
-### Card-based logging (requires ConsoleCard id)
-
-#### logDebug(consoleId, message)
-
-```cpp
-void logDebug(const String& consoleId, const String& message)
-```
-
-#### logInfo(consoleId, message)
-
-```cpp
-void logInfo(const String& consoleId, const String& message)
-```
-
-#### logWarning(consoleId, message)
-
-```cpp
-void logWarning(const String& consoleId, const String& message)
-```
-
-#### logError(consoleId, message)
-
-```cpp
-void logError(const String& consoleId, const String& message)
-```
-
-#### log(consoleId, level, message)
-
-```cpp
-void log(const String& consoleId, LogLevel level, const String& message)
-```
-
-#### clearConsole(consoleId)
-
-```cpp
-void clearConsole(const String& consoleId)
-```
-
-### Global logging (to Console tab, no card required)
-
-These methods log directly to the Console tab without needing a ConsoleCard.
-Only works if `enableConsole = true` was set in `begin()`.
-
-#### logDebug(message)
+### logDebug(message)
 
 ```cpp
 void logDebug(const String& message)
 ```
 
-#### logInfo(message)
+### logInfo(message)
 
 ```cpp
 void logInfo(const String& message)
 ```
 
-#### logWarning(message)
+### logWarning(message)
 
 ```cpp
 void logWarning(const String& message)
 ```
 
-#### logError(message)
+### logError(message)
 
 ```cpp
 void logError(const String& message)
 ```
 
-#### log(level, message)
+### log(level, message)
 
 ```cpp
 void log(LogLevel level, const String& message)

@@ -1360,17 +1360,8 @@ using ESPDashboard = ESPDashboardPlus;
          return card;
      }
      
-     OTACard* addOTACard(const String& id = "ota", const String& title = "Firmware Update (OTA)", int maxSize = 4) {
-         OTACard* card = new OTACard(id, title, maxSize);
-         _cards[id] = card;
-         return card;
-     }
-     
-     ConsoleCard* addConsoleCard(const String& id, const String& title = "Console Log", int maxEntries = 100) {
-         ConsoleCard* card = new ConsoleCard(id, title, maxEntries);
-         _cards[id] = card;
-         return card;
-     }
+     // Note: OTA and Console are now only available as tabs, not dashboard cards
+     // Use dashboard.begin(..., enableOTA, enableConsole) to configure
      
      // Get card by ID
      DashboardCard* getCard(const String& id) {
@@ -1525,61 +1516,7 @@ using ESPDashboard = ESPDashboardPlus;
      }
      
     // ========================================
-    // Console Log Functions (Serial.println-like API)
-    // ========================================
-    
-    /**
-     * Log a debug message to the console card
-     */
-    void logDebug(const String& consoleId, const String& message) {
-        logToConsole(consoleId, LogLevel::DEBUG, message);
-    }
-    
-    /**
-     * Log an info message to the console card
-     */
-    void logInfo(const String& consoleId, const String& message) {
-        logToConsole(consoleId, LogLevel::INFO, message);
-    }
-    
-    /**
-     * Log a warning message to the console card
-     */
-    void logWarning(const String& consoleId, const String& message) {
-        logToConsole(consoleId, LogLevel::WARNING, message);
-    }
-    
-    /**
-     * Log an error message to the console card
-     */
-    void logError(const String& consoleId, const String& message) {
-        logToConsole(consoleId, LogLevel::ERROR, message);
-    }
-    
-    /**
-     * Generic log function with level
-     */
-    void log(const String& consoleId, LogLevel level, const String& message) {
-        logToConsole(consoleId, level, message);
-    }
-    
-    /**
-     * Clear all logs from a console card
-     */
-    void clearConsole(const String& consoleId) {
-        ConsoleCard* card = static_cast<ConsoleCard*>(getCard(consoleId));
-        if (card && card->type == CardType::CONSOLE) {
-            card->clear();
-            
-            DynamicJsonDocument doc(512);
-            JsonObject data = doc.to<JsonObject>();
-            JsonArray logsArr = data["logs"].to<JsonArray>();
-            broadcastUpdate(consoleId, data);
-        }
-    }
-    
-    // ========================================
-    // Global Log Functions (without card ID)
+    // Console Log Functions
     // Logs to Console tab if enableConsole = true
     // ========================================
     
@@ -1619,24 +1556,6 @@ using ESPDashboard = ESPDashboardPlus;
     }
      
 private:
-    void logToConsole(const String& consoleId, LogLevel level, const String& message) {
-        ConsoleCard* card = static_cast<ConsoleCard*>(getCard(consoleId));
-        if (card && card->type == CardType::CONSOLE) {
-            card->addLog(level, message);
-            
-            // Broadcast the new log entry
-            DynamicJsonDocument doc(4096);
-            JsonObject data = doc.to<JsonObject>();
-            JsonArray logsArr = data["logs"].to<JsonArray>();
-            for (const LogEntry& entry : card->logs) {
-                JsonObject logObj = logsArr.add<JsonObject>();
-                logObj["timestamp"] = entry.timestamp;
-                logObj["level"] = card->getLogLevelString(entry.level);
-                logObj["message"] = entry.message;
-            }
-            broadcastUpdate(consoleId, data);
-        }
-    }
     
     // Broadcast log directly to Console tab (without a card)
     void broadcastLog(LogLevel level, const String& message) {

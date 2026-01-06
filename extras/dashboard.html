@@ -83,7 +83,7 @@
       background-size: 100% 100%, 50px 50px, 50px 50px;
     }
     
-    .container { max-width: 1400px; margin: 0; padding: 0 20px;}
+    .container {margin: 0; padding: 0 20px;}
 
     main.container { margin-top: 32px; }
     
@@ -1964,62 +1964,10 @@
             </div>
           `;
           
+        // OTA and Console cards removed - use tabs instead
         case 'ota':
-          return `
-            <div class="card" data-id="${id}">
-              <div class="card-title">${config.title || 'Firmware Update'}</div>
-              <div class="upload-zone" id="upload-${id}" onclick="document.getElementById('file-${id}').click()" ondrop="handleDrop(event, '${id}')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-                <input type="file" id="file-${id}" accept=".bin,.ota" style="display:none" onchange="handleFileSelect(event, '${id}')">
-                <div class="upload-icon">📦</div>
-                <div class="upload-text">Drop firmware file or click to browse</div>
-                <div class="upload-hint">.bin, .ota files up to ${config.maxSize || 4}MB</div>
-              </div>
-              <div class="upload-progress" id="progress-${id}" style="display:none">
-                <div class="progress-bar"><div class="progress-fill" id="progress-fill-${id}" style="width:0%"></div></div>
-                <div class="progress-text">
-                  <span id="progress-status-${id}">Uploading...</span>
-                  <span id="progress-pct-${id}">0%</span>
-                </div>
-              </div>
-            </div>
-          `;
-          
         case 'console':
-          const logs = config.logs || [];
-          return `
-            <div class="card" data-id="${id}" style="grid-column: span 2;">
-              <div class="card-title">${config.title || 'Console Log'}</div>
-              <div class="console-container">
-                <div class="console-header">
-                  <div class="console-header-left">
-                    <div class="console-dot"></div>
-                    <span>${logs.length} entries</span>
-                  </div>
-                  <button class="console-clear-btn" onclick="clearConsole('${id}')">Clear</button>
-                </div>
-                <div class="console-logs" id="console-logs-${id}">
-                  ${logs.length === 0 ? '<div class="console-empty">No log entries yet</div>' : ''}
-                  ${logs.map(log => `
-                    <div class="console-log-entry">
-                      <span class="console-timestamp">${log.timestamp || ''}</span>
-                      <span class="console-level ${log.level || 'info'}">${log.level || 'info'}</span>
-                      <span class="console-message ${log.level || 'info'}">${escapeHtml(log.message || '')}</span>
-                    </div>
-                  `).join('')}
-                </div>
-                <div class="console-input-container">
-                  <div style="position:relative;flex:1">
-                    <span class="console-input-prefix">$</span>
-                    <input type="text" class="console-input" id="console-input-${id}" placeholder="Enter command..." onkeydown="if(event.key==='Enter')sendConsoleCommand('${id}')">
-                  </div>
-                  <button class="console-send-btn" onclick="sendConsoleCommand('${id}')">
-                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                    Send
-                  </button>
-                </div>
-              </div>
-            </div>
-          `;
+          return ''; // These card types are only available as tabs
           
         default:
           return `<div class="card" data-id="${id}"><div class="card-title">Unknown: ${type}</div></div>`;
@@ -2634,6 +2582,19 @@
             }
             document.getElementById('page-progress-status').textContent = 'Upload complete! Restarting...';
             addPageLog('info', 'OTA upload complete. Device restarting...');
+            
+            // Reset OTA upload form after 5 seconds
+            setTimeout(() => {
+              const zone = document.getElementById('page-upload-zone');
+              const progress = document.getElementById('page-ota-progress');
+              const fileInput = document.getElementById('page-ota-file');
+              if (zone) zone.style.display = 'block';
+              if (progress) progress.style.display = 'none';
+              if (fileInput) fileInput.value = '';
+              document.getElementById('page-progress-fill').style.width = '0%';
+              document.getElementById('page-progress-pct').textContent = '0%';
+              document.getElementById('page-progress-status').textContent = 'Uploading...';
+            }, 5000);
             return;
           }
           

@@ -6,11 +6,13 @@ nav_order: 3
 
 # Cards Reference
 
-ESP DashboardPlus provides 16 different card types for building your dashboard. The dashboard features a **tabbed interface** with three main sections:
+ESP DashboardPlus provides 14 different card types for building your dashboard. The dashboard features a **tabbed interface** with three main sections:
 
 - **Dashboard** - Main view with all your sensor cards and controls
-- **Console** - Full-page console with log filtering, export, and command input
-- **OTA Update** - Dedicated firmware update page with device info
+- **Console** - Full-page console with log filtering, export, and command input (tab only)
+- **OTA Update** - Dedicated firmware update page with device info (tab only)
+
+> **Note**: OTA and Console are available as **tabs only**, not dashboard cards. Use `enableOTA` and `enableConsole` in `begin()` to control visibility.
 
 ## Tab Configuration
 
@@ -50,12 +52,12 @@ dashboard.onCommand([](const String& command) {
 });
 ```
 
-### Global Logging (without card ID)
+### Global Logging (to Console tab)
 
-Log directly to the Console tab without needing a ConsoleCard:
+Log directly to the Console tab:
 
 ```cpp
-// Log to Console tab (no card required)
+// Log to Console tab
 dashboard.logDebug("Debug message");
 dashboard.logInfo("Info message");
 dashboard.logWarning("Warning message");
@@ -490,141 +492,3 @@ wifiStatus->setStatus(
     "Connected", WiFi.localIP().toString()
 );
 ```
-
----
-
-## ConsoleCard
-
-Displays timestamped log entries with debug, info, warning, and error levels. Includes a command input for sending commands to the device.
-
-### Visual Representation
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  System Console                                                 │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ 00:00:01.234  DEBUG  Sensor data collected               │  │
-│  │ 00:00:03.456  INFO   System heartbeat #1                 │  │
-│  │ 00:00:05.678  WARN   High CPU usage: 75%                 │  │
-│  │ 00:00:07.890  ERROR  Temperature exceeded                │  │
-│  │ 00:00:10.123  INFO   > reboot                            │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ $ [Enter command...]                           [Send]    │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `id` | `String` | - | Unique identifier |
-| `title` | `String` | "Console Log" | Card title |
-| `maxEntries` | `int` | 100 | Maximum log entries to keep |
-
-### Callbacks
-
-| Callback | Parameters | Description |
-|----------|------------|-------------|
-| `onClear` | - | Called when the user clears the console |
-| `onCommand` | `const String& command` | Called when user sends a command |
-
-### Example
-
-```cpp
-ConsoleCard* console = dashboard.addConsoleCard(
-    "console", "System Console", 50
-);
-
-// Handle user commands from the web interface
-console->onCommand = [](const String& command) {
-    Serial.printf("Received command: %s\n", command.c_str());
-    
-    if (command == "reboot") {
-        ESP.restart();
-    } else if (command == "status") {
-        dashboard.logInfo("console", "System OK");
-    } else {
-        dashboard.logWarning("console", "Unknown command: " + command);
-    }
-};
-
-// Log messages (Serial.println-like API)
-dashboard.logDebug("console", "Initializing sensors...");
-dashboard.logInfo("console", "WiFi connected");
-dashboard.logWarning("console", "Battery low: 15%");
-dashboard.logError("console", "Sensor read failed!");
-
-// Clear console
-dashboard.clearConsole("console");
-```
-
----
-
-## OTACard
-
-Over-the-Air firmware update with drag-and-drop support. The update is sent via WebSocket in base64-encoded chunks.
-
-### Visual Representation
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Firmware Update (OTA)                                          │
-│                                                                 │
-│  ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐  │
-│  │                         📦                               │  │
-│  │           Drop firmware file or click to browse          │  │
-│  │                .bin, .ota files up to 4MB                │  │
-│  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘  │
-│                                                                 │
-│  [═════════════════════════════                    ] 65%        │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `id` | `String` | "ota" | Unique identifier |
-| `title` | `String` | "Firmware Update (OTA)" | Card title |
-| `maxSize` | `int` | 4 | Maximum file size in MB |
-
-### Callbacks
-
-| Callback | Parameters | Description |
-|----------|------------|-------------|
-| `onProgress` | `size_t current, size_t total` | Called during upload |
-| `onComplete` | `bool success` | Called when upload completes |
-
-### OTA Process
-
-1. User selects/drops a `.bin` or `.ota` file
-2. Dashboard sends `ota_start` action with file size
-3. File is sent in 1KB base64-encoded chunks via `ota_chunk`
-4. Dashboard sends `ota_end` to complete the update
-5. ESP32 writes to flash and reboots
-
-### Example
-
-```cpp
-OTACard* otaCard = dashboard.addOTACard(
-    "ota", "Firmware Update", 4  // Max 4MB
-);
-
-otaCard->onProgress = [](size_t current, size_t total) {
-    Serial.printf("OTA: %d%%\n", (current * 100) / total);
-};
-
-otaCard->onComplete = [](bool success) {
-    Serial.printf("OTA %s\n", success ? "Success!" : "Failed!");
-};
-```
-
-### Troubleshooting OTA
-
-- **Update not applying**: Ensure the `.bin` file is a valid ESP32 firmware
-- **Upload stalls**: Check WebSocket connection stability
-- **Size error**: Ensure file size is within the configured `maxSize` limit
-- **Verification failed**: The binary may be corrupted; try re-compiling
