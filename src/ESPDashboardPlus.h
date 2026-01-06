@@ -872,109 +872,113 @@ private:
    // Firmware version info (for OTA tab)
    String _version;
    String _lastUpdate;
-    
-    void handleWebSocketMessage(AsyncWebSocketClient* client, const String& message) {
-        StaticJsonDocument<1024> doc;
-        DeserializationError error = deserializeJson(doc, message);
-         
-         if (error) {
-             Serial.println("[Dashboard] JSON parse error");
-             return;
-         }
+     
+   // Robust WebSocket JSON handler: parses exactly len bytes from data buffer
+   void handleWebSocketMessage(AsyncWebSocketClient* client, const uint8_t* data, size_t len) {
+       StaticJsonDocument<4096> doc;
+       DeserializationError error = deserializeJson(doc, data, len);
         
-        String type = doc["type"].as<String>();
+        if (error) {
+            Serial.print("[Dashboard] JSON parse error: ");
+            Serial.println(error.c_str());
+            return;
+        }
+      
+       String type = doc["type"].as<String>();
         
-        if (type == "init") {
-            sendCardsToClient(client);
-        } else if (type == "action") {
-            String cardId = doc["cardId"].as<String>();
-            String action = doc["action"].as<String>();
-            JsonObject data = doc["data"].as<JsonObject>();
-            
-            if (_cards.find(cardId) != _cards.end()) {
-                _cards[cardId]->handleAction(action, data);
-                
-                // Handle OTA actions
+       if (type == "init") {
+           sendCardsToClient(client);
+       } else if (type == "action") {
+           String cardId = doc["cardId"].as<String>();
+           String action = doc["action"].as<String>();
+           JsonObject dataObj = doc["data"].as<JsonObject>();
+           
+           if (_cards.find(cardId) != _cards.end()) {
+               _cards[cardId]->handleAction(action, dataObj);
+               
+               // Handle OTA actions
 #if defined(ARDUINO_ARCH_ESP32)
-                if (action == "ota_start") {
-                    _otaSize = data["size"].as<size_t>();
-                    _otaReceived = 0;
-                    _otaInProgress = true;
-                    
-                    if (!Update.begin(_otaSize)) {
-                        Serial.println("[Dashboard] OTA begin failed");
-                        _otaInProgress = false;
-                    }
-                } else if (action == "ota_chunk" && _otaInProgress) {
-                    String b64Data = data["data"].as<String>();
-                    size_t len = base64_decode_length(b64Data);
-                    uint8_t* decoded = new uint8_t[len];
-                    base64_decode(b64Data, decoded);
-                    
-                    Update.write(decoded, len);
-                    _otaReceived += len;
-                    
-                    delete[] decoded;
-                } else if (action == "ota_end" && _otaInProgress) {
-                    if (Update.end(true)) {
-                        Serial.println("[Dashboard] OTA complete, restarting...");
-                        delay(1000);
-                        ESP.restart();
-                    } else {
-                        Serial.println("[Dashboard] OTA end failed");
-                    }
-                    _otaInProgress = false;
-                }
+               if (action == "ota_start") {
+                   _otaSize = dataObj["size"].as<size_t>();
+                   _otaReceived = 0;
+                   _otaInProgress = true;
+                   
+                   if (!Update.begin(_otaSize)) {
+                       Serial.print("[Dashboard] OTA begin failed: ");
+                       Update.printError(Serial);
+                       _otaInProgress = false;
+                   }
+               } else if (action == "ota_chunk" && _otaInProgress) {
+                   String b64Data = dataObj["data"].as<String>();
+                   size_t decodedLen = base64_decode_length(b64Data);
+                   uint8_t* decoded = new uint8_t[decodedLen];
+                   base64_decode(b64Data, decoded);
+                   
+                   Update.write(decoded, decodedLen);
+                   _otaReceived += decodedLen;
+                   
+                   delete[] decoded;
+               } else if (action == "ota_end" && _otaInProgress) {
+                   if (Update.end(true)) {
+                       Serial.println("[Dashboard] OTA complete, restarting...");
+                       delay(1000);
+                       ESP.restart();
+                   } else {
+                       Serial.println("[Dashboard] OTA end failed");
+                   }
+                   _otaInProgress = false;
+               }
 #else
-                if (action == "ota_start" || action == "ota_chunk" || action == "ota_end") {
-                    Serial.println("[Dashboard] OTA not supported on this platform");
-                    _otaInProgress = false;
-                }
+               if (action == "ota_start" || action == "ota_chunk" || action == "ota_end") {
+                   Serial.println("[Dashboard] OTA not supported on this platform");
+                   _otaInProgress = false;
+               }
 #endif
-            }
-        } else if (type == "command") {
+           }
+       } else if (type == "command") {
             // Global command from console tab
             String command = doc["command"].as<String>();
             if (_onCommand) {
                 _onCommand(command);
             }
-        } else if (type == "ota_start" || type == "ota_chunk" || type == "ota_end") {
-            // Handle OTA from the dedicated OTA tab (not card-based)
+       } else if (type == "ota_start" || type == "ota_chunk" || type == "ota_end") {
+           // Handle OTA from the dedicated OTA tab (not card-based)
 #if defined(ARDUINO_ARCH_ESP32)
-            if (type == "ota_start") {
-                _otaSize = doc["size"].as<size_t>();
-                _otaReceived = 0;
-                _otaInProgress = true;
-                
-                if (!Update.begin(_otaSize)) {
-                    Serial.println("[Dashboard] OTA begin failed");
-                    _otaInProgress = false;
-                }
-            } else if (type == "ota_chunk" && _otaInProgress) {
-                String b64Data = doc["data"].as<String>();
-                size_t len = base64_decode_length(b64Data);
-                uint8_t* decoded = new uint8_t[len];
-                base64_decode(b64Data, decoded);
-                
-                Update.write(decoded, len);
-                _otaReceived += len;
-                
-                delete[] decoded;
-            } else if (type == "ota_end" && _otaInProgress) {
-                if (Update.end(true)) {
-                    Serial.println("[Dashboard] OTA complete, restarting...");
-                    delay(1000);
-                    ESP.restart();
-                } else {
-                    Serial.println("[Dashboard] OTA end failed");
-                }
-                _otaInProgress = false;
-            }
+           if (type == "ota_start") {
+               _otaSize = doc["size"].as<size_t>();
+               _otaReceived = 0;
+               _otaInProgress = true;
+               
+               if (!Update.begin(_otaSize)) {
+                   Serial.print("[Dashboard] OTA begin failed: ");
+                   Update.printError(Serial);
+                   _otaInProgress = false;
+               }
+           } else if (type == "ota_chunk" && _otaInProgress) {
+               String b64Data = doc["data"].as<String>();
+               size_t decodedLen = base64_decode_length(b64Data);
+               uint8_t* decoded = new uint8_t[decodedLen];
+               base64_decode(b64Data, decoded);
+               
+               Update.write(decoded, decodedLen);
+               _otaReceived += decodedLen;
+               
+               delete[] decoded;
+           } else if (type == "ota_end" && _otaInProgress) {
+               if (Update.end(true)) {
+                   Serial.println("[Dashboard] OTA complete, restarting...");
+                   delay(1000);
+                   ESP.restart();
+               } else {
+                   Serial.println("[Dashboard] OTA end failed");
+               }
+               _otaInProgress = false;
+           }
 #else
-            Serial.println("[Dashboard] OTA not supported on this platform");
+           Serial.println("[Dashboard] OTA not supported on this platform");
 #endif
-        }
-    }
+       }
+   }
      
     void sendCardsToClient(AsyncWebSocketClient* client) {
         DynamicJsonDocument doc(8192);
@@ -1100,9 +1104,14 @@ using ESPDashboard = ESPDashboardPlus;
                 Serial.printf("[Dashboard] Client #%u disconnected\n", client->id());
             } else if (type == WS_EVT_DATA) {
                 AwsFrameInfo* info = (AwsFrameInfo*)arg;
-                if (info->opcode == WS_TEXT) {
-                    String message = String((char*)data).substring(0, len);
-                    handleWebSocketMessage(client, message);
+                // Only handle complete text frames to avoid partial JSON
+                if (info->opcode == WS_TEXT && info->final && info->index == 0 && info->len == len) {
+                    handleWebSocketMessage(client, data, len);
+                } else if (info->opcode == WS_TEXT && info->final && (info->index + len) == info->len) {
+                    // In case AsyncWebSocket ever fragments frames, we should ideally
+                    // reassemble them; for now, ignore partial frames to avoid parse errors.
+                    // (Can be extended to accumulate into a buffer if needed.)
+                    handleWebSocketMessage(client, data, len);
                 }
             }
         });
