@@ -276,48 +276,9 @@ void setup() {
     );
     resetBtn->setVariant(CardVariant::DANGER);
     
-    // ========================================
-    // OTA UPLOAD CARD - Firmware updates
-    // ========================================
-    
-    OTACard* otaCard = dashboard.addOTACard("ota", "Firmware Update (OTA)", 4);
-    otaCard->onProgress = [](size_t current, size_t total) {
-        Serial.printf("OTA Progress: %d%%\n", (int)((current * 100) / total));
-    };
-    otaCard->onComplete = [](bool success) {
-        Serial.printf("OTA %s\n", success ? "Success!" : "Failed!");
-    };
-    
-    // ========================================
-    // CONSOLE LOG CARD - Debug/Info/Warning/Error
-    // ========================================
-    
-    ConsoleCard* consoleCard = dashboard.addConsoleCard("console", "System Console", 50);
-    consoleCard->onClear = []() {
-        Serial.println("Console cleared by user");
-    };
-    consoleCard->onCommand = [](const String& command) {
-        Serial.printf("Console command: %s\n", command.c_str());
-        
-        // Handle common commands
-        if (command == "help") {
-            dashboard.logInfo("console", "Available commands: help, status, reboot, version");
-        } else if (command == "status") {
-            dashboard.logInfo("console", "System OK - Temp: " + String(temperature, 1) + "C, CPU: " + String(cpuUsage) + "%");
-        } else if (command == "version") {
-            dashboard.logInfo("console", "ESP-DashboardPlus v1.0.0");
-        } else if (command == "reboot") {
-            dashboard.logWarning("console", "Rebooting in 3 seconds...");
-            delay(3000);
-            ESP.restart();
-        } else {
-            dashboard.logWarning("console", "Unknown command: " + command);
-        }
-    };
-    
-    // Log some initial messages (to ConsoleCard if it exists)
-    dashboard.logInfo("console", "ESP-DashboardPlus initialized successfully");
-    dashboard.logDebug("console", "WebSocket server started on port 80");
+    // Log some initial messages
+    dashboard.logInfo("ESP-DashboardPlus initialized successfully");
+    dashboard.logDebug("WebSocket server started on port 80");
     
     // Also log to the global Console tab (no card required)
     dashboard.logInfo("Dashboard started - OTA and Console tabs enabled");
@@ -381,23 +342,23 @@ void loop() {
         // Cycle through different log levels
         switch (logCounter % 4) {
             case 0:
-                dashboard.logDebug("console", "Sensor data collected: T=" + String(temperature, 1) + "C");
+                dashboard.logDebug("Sensor data collected: T=" + String(temperature, 1) + "C");
                 break;
             case 1:
-                dashboard.logInfo("console", "System heartbeat #" + String(logCounter));
+                dashboard.logInfo("System heartbeat #" + String(logCounter));
                 break;
             case 2:
                 if (cpuUsage > 70) {
-                    dashboard.logWarning("console", "High CPU usage detected: " + String(cpuUsage) + "%");
+                    dashboard.logWarning("High CPU usage detected: " + String(cpuUsage) + "%");
                 } else {
-                    dashboard.logInfo("console", "CPU usage normal: " + String(cpuUsage) + "%");
+                    dashboard.logInfo("CPU usage normal: " + String(cpuUsage) + "%");
                 }
                 break;
             case 3:
                 if (temperature > 30) {
-                    dashboard.logError("console", "Temperature threshold exceeded: " + String(temperature, 1) + "C");
+                    dashboard.logError("Temperature threshold exceeded: " + String(temperature, 1) + "C");
                 } else {
-                    dashboard.logDebug("console", "Temperature within limits");
+                    dashboard.logDebug("Temperature within limits");
                 }
                 break;
         }

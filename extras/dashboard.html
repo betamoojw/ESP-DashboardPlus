@@ -190,14 +190,9 @@
       margin-bottom: 32px;
     }
     
-    /* Ensure cards don't overflow */
-    .card {
-      min-width: 0;
-      overflow: hidden;
-    }
-    
     /* Cards */
     .card {
+      min-width: 0;
       position: relative;
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -206,6 +201,12 @@
       box-shadow: var(--shadow);
       transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
       overflow: hidden;
+    }
+
+    /* Allow dropdown menus to overflow above neighboring cards */
+    .card.dropdown-open {
+      overflow: visible;
+      z-index: 2000;
     }
 
     /* Small update indicator (does not affect layout) */
@@ -825,9 +826,8 @@
       border: 1px solid var(--border);
       border-radius: 10px;
       box-shadow: var(--shadow);
-      z-index: 50;
+      z-index: 5000;
       display: none;
-      overflow: hidden;
     }
     
     .dropdown.open .dropdown-menu { display: block; animation: slideUp 0.2s ease-out; }
@@ -960,6 +960,7 @@
     /* Theme Dropdown */
     .theme-dropdown {
       position: relative;
+      z-index: 200;
     }
     
     .theme-trigger {
@@ -994,9 +995,8 @@
       border: 1px solid var(--border);
       border-radius: 10px;
       box-shadow: var(--shadow);
-      z-index: 100;
+      z-index: 300;
       display: none;
-      overflow: hidden;
     }
     
     .theme-dropdown.open .theme-menu {
@@ -2114,10 +2114,25 @@
           }
 
           case 'dropdown': {
-            const sel = el.querySelector('.dropdown-selected');
+            const triggerText = el.querySelector('.dropdown-trigger span');
             const menu = el.querySelector('.dropdown-menu');
-            if (sel) sel.textContent = card.config.value || card.config.placeholder || 'Select...';
-            if (menu) menu.innerHTML = (card.config.options || []).map(opt => `<div class="dropdown-item" onclick="selectDropdown('${id}','${opt.value}')">${opt.label||opt.value}</div>`).join('');
+            const selectedOpt = (card.config.options || []).find(o => o.value === card.config.value);
+
+            if (triggerText) {
+              triggerText.textContent = selectedOpt?.label || card.config.placeholder || 'Select...';
+            }
+
+            if (menu) {
+              menu.innerHTML = (card.config.options || []).map(opt => {
+                const active = card.config.value === opt.value;
+                return `
+                  <div class="dropdown-item ${active ? 'active' : ''}" onclick="selectDropdown('${id}','${opt.value}')">
+                    <span>${opt.label || opt.value}</span>
+                    ${active ? '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
+                  </div>
+                `;
+              }).join('');
+            }
             break;
           }
 
@@ -2150,7 +2165,11 @@
       // Close dropdowns on outside click
       document.addEventListener('click', (e) => {
         if (!e.target.closest('.dropdown')) {
-          document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
+          document.querySelectorAll('.dropdown.open').forEach(d => {
+            d.classList.remove('open');
+            const c = d.closest('.card');
+            if (c) c.classList.remove('dropdown-open');
+          });
         }
       });
     }
@@ -2307,15 +2326,36 @@
 
     function toggleDropdown(id) {
       const el = document.getElementById(`dropdown-${id}`);
+      if (!el) return;
+
       const wasOpen = el.classList.contains('open');
-      document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
-      if (!wasOpen) el.classList.add('open');
+
+      // Close any other open dropdowns first
+      document.querySelectorAll('.dropdown.open').forEach(d => {
+        d.classList.remove('open');
+        const c = d.closest('.card');
+        if (c) c.classList.remove('dropdown-open');
+      });
+
+      if (!wasOpen) {
+        el.classList.add('open');
+        const c = el.closest('.card');
+        if (c) c.classList.add('dropdown-open');
+      }
     }
 
     function selectDropdown(id, value) {
       cards[id].config.value = value;
       sendAction(id, 'change', { value });
       updateCard(id);
+
+      // Close dropdown and restore card clipping
+      const el = document.getElementById(`dropdown-${id}`);
+      if (el) {
+        el.classList.remove('open');
+        const c = el.closest('.card');
+        if (c) c.classList.remove('dropdown-open');
+      }
     }
 
     // Confirm Modal
