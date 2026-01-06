@@ -872,6 +872,11 @@ private:
    // Firmware version info (for OTA tab)
    String _version;
    String _lastUpdate;
+   
+   // WebSocket message reassembly buffer for fragmented frames
+   uint8_t* _wsBuffer = nullptr;
+   size_t _wsBufferSize = 0;
+   size_t _wsBufferFilled = 0;
     
     // Robust WebSocket JSON handler: parses exactly len bytes from data buffer
     void handleWebSocketMessage(AsyncWebSocketClient* client, const uint8_t* data, size_t len) {
@@ -916,21 +921,41 @@ private:
                    }
                } else if (action == "ota_chunk" && _otaInProgress) {
                    String b64Data = dataObj["data"].as<String>();
-                   size_t decodedLen = base64_decode_length(b64Data);
-                   uint8_t* decoded = new uint8_t[decodedLen];
+                   size_t expectedLen = base64_decode_length(b64Data);
+                   if (expectedLen == 0) {
+                       Serial.println("[Dashboard] OTA chunk: invalid base64 length");
+                       Update.abort();
+                       _otaInProgress = false;
+                       return;
+                   }
+                   uint8_t* decoded = new uint8_t[expectedLen];
                    base64_decode(b64Data, decoded);
                    
-                   Update.write(decoded, decodedLen);
-                   _otaReceived += decodedLen;
+                   size_t written = Update.write(decoded, expectedLen);
+                   if (written != expectedLen) {
+                       Serial.printf("[Dashboard] OTA write mismatch: expected %u, wrote %u\n", expectedLen, written);
+                       Update.abort();
+                       _otaInProgress = false;
+                       delete[] decoded;
+                       return;
+                   }
+                   _otaReceived += expectedLen;
                    
                    delete[] decoded;
                } else if (action == "ota_end" && _otaInProgress) {
+                   if (_otaReceived != _otaSize) {
+                       Serial.printf("[Dashboard] OTA size mismatch! Expected %u, received %u\n", _otaSize, _otaReceived);
+                       Update.abort();
+                       _otaInProgress = false;
+                       return;
+                   }
                    if (Update.end(true)) {
                        Serial.println("[Dashboard] OTA complete, restarting...");
                        delay(1000);
                        ESP.restart();
                    } else {
                        Serial.println("[Dashboard] OTA end failed");
+                       Update.printError(Serial);
                    }
                    _otaInProgress = false;
                }
@@ -962,21 +987,41 @@ private:
                }
            } else if (type == "ota_chunk" && _otaInProgress) {
                String b64Data = doc["data"].as<String>();
-               size_t decodedLen = base64_decode_length(b64Data);
-               uint8_t* decoded = new uint8_t[decodedLen];
+               size_t expectedLen = base64_decode_length(b64Data);
+               if (expectedLen == 0) {
+                   Serial.println("[Dashboard] OTA chunk: invalid base64 length");
+                   Update.abort();
+                   _otaInProgress = false;
+                   return;
+               }
+               uint8_t* decoded = new uint8_t[expectedLen];
                base64_decode(b64Data, decoded);
                
-               Update.write(decoded, decodedLen);
-               _otaReceived += decodedLen;
+               size_t written = Update.write(decoded, expectedLen);
+               if (written != expectedLen) {
+                   Serial.printf("[Dashboard] OTA write mismatch: expected %u, wrote %u\n", expectedLen, written);
+                   Update.abort();
+                   _otaInProgress = false;
+                   delete[] decoded;
+                   return;
+               }
+               _otaReceived += expectedLen;
                
                delete[] decoded;
            } else if (type == "ota_end" && _otaInProgress) {
+               if (_otaReceived != _otaSize) {
+                   Serial.printf("[Dashboard] OTA size mismatch! Expected %u, received %u\n", _otaSize, _otaReceived);
+                   Update.abort();
+                   _otaInProgress = false;
+                   return;
+               }
                if (Update.end(true)) {
                    Serial.println("[Dashboard] OTA complete, restarting...");
                    delay(1000);
                    ESP.restart();
                } else {
                    Serial.println("[Dashboard] OTA end failed");
+                   Update.printError(Serial);
                }
                _otaInProgress = false;
            }
@@ -1075,6 +1120,13 @@ public:
              delete pair.second;
          }
          _cards.clear();
+         
+         if (_wsBuffer) {
+             delete[] _wsBuffer;
+             _wsBuffer = nullptr;
+             _wsBufferSize = 0;
+             _wsBufferFilled = 0;
+         }
      }
  
 // Backwards compatibility alias
@@ -1110,14 +1162,40 @@ using ESPDashboard = ESPDashboardPlus;
                 Serial.printf("[Dashboard] Client #%u disconnected\n", client->id());
             } else if (type == WS_EVT_DATA) {
                 AwsFrameInfo* info = (AwsFrameInfo*)arg;
-                // Only handle complete text frames to avoid partial JSON
-                if (info->opcode == WS_TEXT && info->final && info->index == 0 && info->len == len) {
-                    handleWebSocketMessage(client, data, len);
-                } else if (info->opcode == WS_TEXT && info->final && (info->index + len) == info->len) {
-                    // In case AsyncWebSocket ever fragments frames, we should ideally
-                    // reassemble them; for now, ignore partial frames to avoid parse errors.
-                    // (Can be extended to accumulate into a buffer if needed.)
-                    handleWebSocketMessage(client, data, len);
+                if (info->opcode == WS_TEXT) {
+                    // Handle unfragmented frames directly
+                    if (info->final && info->index == 0 && info->len == len) {
+                        handleWebSocketMessage(client, data, len);
+                    } else {
+                        // Reassemble fragmented frames
+                        if (info->index == 0) {
+                            // First fragment: allocate buffer for the full message length
+                            if (_wsBuffer) {
+                                delete[] _wsBuffer;
+                                _wsBuffer = nullptr;
+                                _wsBufferSize = 0;
+                                _wsBufferFilled = 0;
+                            }
+                            _wsBufferSize = info->len;
+                            _wsBufferFilled = 0;
+                            _wsBuffer = new uint8_t[_wsBufferSize];
+                        }
+                        
+                        // Copy this fragment into the correct offset
+                        if (_wsBuffer && (info->index + len) <= _wsBufferSize) {
+                            memcpy(_wsBuffer + info->index, data, len);
+                            _wsBufferFilled += len;
+                        }
+                        
+                        // Final fragment: parse the complete message
+                        if (info->final && _wsBuffer && _wsBufferFilled == _wsBufferSize) {
+                            handleWebSocketMessage(client, _wsBuffer, _wsBufferSize);
+                            delete[] _wsBuffer;
+                            _wsBuffer = nullptr;
+                            _wsBufferSize = 0;
+                            _wsBufferFilled = 0;
+                        }
+                    }
                 }
             }
         });

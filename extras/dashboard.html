@@ -2615,22 +2615,19 @@
       zone.style.display = 'none';
       progress.style.display = 'block';
       
-      console.log('Starting OTA upload: ' + file.name + ' (' + file.size + ' bytes)');  
-
       // Send OTA start
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'ota_start', name: file.name, size: file.size }));
       }
       
       const reader = new FileReader();
-      const chunkSize = 1024;
+      const chunkSize = 2048;
       let offset = 0;
       
       reader.onload = () => {
         const data = new Uint8Array(reader.result);
         
         function sendChunk() {
-          console.log('Sending chunk: ' + offset + ' - ' + Math.min(offset + chunkSize, data.length) + ' / ' + data.length);
           if (offset >= data.length) {
             if (ws && ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ type: 'ota_end' }));
@@ -2642,7 +2639,6 @@
           
           const chunk = data.slice(offset, offset + chunkSize);
           const b64 = btoa(String.fromCharCode.apply(null, chunk));
-          console.log(JSON.stringify({ type: 'ota_chunk', data: b64 }));
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'ota_chunk', data: b64 }));
           }

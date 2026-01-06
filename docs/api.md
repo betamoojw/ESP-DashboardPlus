@@ -44,6 +44,27 @@ void begin(AsyncWebServer* server, const uint8_t* htmlData, size_t htmlSize,
 | `enableConsole` | `bool` | true | Show the Console tab |
 | `wsPath` | `String` | "/ws" | WebSocket path |
 
+> **Note on OTA support (ESP32)**  
+> To use the OTA update tab reliably, your ESP32 must use a partition table that provides **OTA app slots** (e.g. `ota_0`, `ota_1`) with enough space for your firmware.  
+> Common choices in Arduino / PlatformIO are partition schemes like `min_spiffs.csv` or other `*ota*.csv` variants that define at least one OTA partition.
+
+**Example: PlatformIO configuration with OTA-capable partition table**
+
+```ini
+[env:esp32-s3-devkitm-1]
+platform = espressif32
+board = esp32-s3-devkitm-1
+framework = arduino
+
+; 4 MB flash with OTA-capable partition layout
+board_upload.flash_size = 4MB
+board_build.partitions = min_spiffs.csv
+
+build_flags =
+  -DARDUINO_USB_CDC_ON_BOOT=1
+  -DBOARD_HAS_PSRAM
+```
+
 #### loop()
 
 Process WebSocket events. Call this in your main loop.
