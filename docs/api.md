@@ -6,7 +6,7 @@ nav_order: 4
 
 # API Reference
 
-Complete API documentation for ESP DashboardPlus.
+Complete API documentation for ESP-DashboardPlus.
 
 ---
 
@@ -22,7 +22,7 @@ ESPDashboardPlus(const String& title = "ESP32 Dashboard")
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `title` | `String` | "ESP32 DashboardPlus" | Dashboard title |
+| `title` | `String` | "ESP32-DashboardPlus" | Dashboard title |
 
 ### Methods
 
@@ -31,7 +31,8 @@ ESPDashboardPlus(const String& title = "ESP32 Dashboard")
 Initialize the dashboard with PROGMEM HTML data.
 
 ```cpp
-void begin(AsyncWebServer* server, const uint8_t* htmlData, size_t htmlSize, const String& wsPath = "/ws")
+void begin(AsyncWebServer* server, const uint8_t* htmlData, size_t htmlSize, 
+           bool enableOTA = true, bool enableConsole = true, const String& wsPath = "/ws")
 ```
 
 | Parameter | Type | Default | Description |
@@ -39,6 +40,8 @@ void begin(AsyncWebServer* server, const uint8_t* htmlData, size_t htmlSize, con
 | `server` | `AsyncWebServer*` | - | Pointer to web server |
 | `htmlData` | `const uint8_t*` | - | PROGMEM HTML data |
 | `htmlSize` | `size_t` | - | HTML data size |
+| `enableOTA` | `bool` | true | Show the OTA Update tab |
+| `enableConsole` | `bool` | true | Show the Console tab |
 | `wsPath` | `String` | "/ws" | WebSocket path |
 
 #### loop()
@@ -51,10 +54,54 @@ void loop()
 
 #### setTitle()
 
-Change the dashboard title.
+Change the dashboard title and optionally subtitle.
 
 ```cpp
 void setTitle(const String& title)
+void setTitle(const String& title, const String& subtitle)
+void setSubtitle(const String& subtitle)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `title` | `String` | Dashboard title displayed in header |
+| `subtitle` | `String` | Subtitle displayed below title |
+
+#### setVersionInfo()
+
+Set firmware version info displayed in the OTA tab.
+
+```cpp
+void setVersionInfo(const String& version, const String& lastUpdate = "")
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `version` | `String` | Current firmware version |
+| `lastUpdate` | `String` | Date of last update |
+
+#### onCommand()
+
+Set the global command handler for Console tab input.
+
+```cpp
+void onCommand(std::function<void(const String&)> handler)
+```
+
+#### isOTAEnabled()
+
+Check if OTA tab is enabled.
+
+```cpp
+bool isOTAEnabled() const
+```
+
+#### isConsoleEnabled()
+
+Check if Console tab is enabled.
+
+```cpp
+bool isConsoleEnabled() const
 ```
 
 ---
@@ -249,42 +296,79 @@ void updateStatusCard(const String& id, StatusIcon icon, CardVariant variant,
 
 ## Console Logging Methods
 
-Serial.println-like API for logging to ConsoleCard.
+Serial.println-like API for logging to ConsoleCard or the Console tab.
 
-### logDebug()
+### Card-based logging (requires ConsoleCard id)
+
+#### logDebug(consoleId, message)
 
 ```cpp
 void logDebug(const String& consoleId, const String& message)
 ```
 
-### logInfo()
+#### logInfo(consoleId, message)
 
 ```cpp
 void logInfo(const String& consoleId, const String& message)
 ```
 
-### logWarning()
+#### logWarning(consoleId, message)
 
 ```cpp
 void logWarning(const String& consoleId, const String& message)
 ```
 
-### logError()
+#### logError(consoleId, message)
 
 ```cpp
 void logError(const String& consoleId, const String& message)
 ```
 
-### log()
+#### log(consoleId, level, message)
 
 ```cpp
 void log(const String& consoleId, LogLevel level, const String& message)
 ```
 
-### clearConsole()
+#### clearConsole(consoleId)
 
 ```cpp
 void clearConsole(const String& consoleId)
+```
+
+### Global logging (to Console tab, no card required)
+
+These methods log directly to the Console tab without needing a ConsoleCard.
+Only works if `enableConsole = true` was set in `begin()`.
+
+#### logDebug(message)
+
+```cpp
+void logDebug(const String& message)
+```
+
+#### logInfo(message)
+
+```cpp
+void logInfo(const String& message)
+```
+
+#### logWarning(message)
+
+```cpp
+void logWarning(const String& message)
+```
+
+#### logError(message)
+
+```cpp
+void logError(const String& message)
+```
+
+#### log(level, message)
+
+```cpp
+void log(LogLevel level, const String& message)
 ```
 
 ---

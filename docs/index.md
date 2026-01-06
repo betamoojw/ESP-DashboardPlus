@@ -6,7 +6,7 @@ nav_order: 1
 
 # ESP-DashboardPlus
 
-A real-time, on-device web dashboard library for ESP32/ESP8266 microcontrollers.
+A real-time, on-device web dashboard library for ESP32 microcontrollers.
 
 ## Features
 
@@ -14,8 +14,9 @@ A real-time, on-device web dashboard library for ESP32/ESP8266 microcontrollers.
 - **📊 16 Card Types** - Stats, charts, gauges, toggles, sliders, buttons, and more
 - **🎨 Modern Dark Theme** - Industrial IoT aesthetic with customizable colors
 - **📱 Responsive Design** - Works on desktop and mobile browsers
+- **🗂️ Tabbed Interface** - Dashboard, Console, and OTA tabs in a single file
 - **🔄 OTA Updates** - Built-in over-the-air firmware update support
-- **📝 Console Logging** - Serial.println-like logging displayed on dashboard
+- **📝 Console Logging** - Serial.println-like logging with command input
 - **⚡ Optimized** - Gzip-compressed HTML stored in PROGMEM (~15KB)
 
 ## Quick Start

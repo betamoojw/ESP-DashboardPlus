@@ -776,6 +776,7 @@
      int maxEntries;
      bool autoScroll;
      std::function<void()> onClear;
+     std::function<void(const String&)> onCommand;
      
      ConsoleCard(const String& id, const String& title = "Console Log", int maxEntries = 100)
          : DashboardCard(id, CardType::CONSOLE, title), maxEntries(maxEntries), autoScroll(true) {}
@@ -799,6 +800,9 @@
          if (action == "clear") {
              logs.clear();
              if (onClear) onClear();
+         } else if (action == "command" && !data["command"].isNull()) {
+             String cmd = data["command"].as<String>();
+             if (onCommand) onCommand(cmd);
          }
      }
      
@@ -835,104 +839,172 @@
      }
  };
  
- /**
-  * Main Dashboard Class
-  */
- class ESPDashboardPlus {
- private:
-     AsyncWebServer* _server;
-     AsyncWebSocket* _ws;
-     std::map<String, DashboardCard*> _cards;
-     String _title;
-     
-     // OTA state
-     bool _otaInProgress;
-     size_t _otaSize;
-     size_t _otaReceived;
-     
-    // HTML data (for PROGMEM)
-    const uint8_t* _htmlData;
-    size_t _htmlSize;
+/**
+ * Main Dashboard Class
+ */
+class ESPDashboardPlus {
+private:
+    AsyncWebServer* _server;
+    AsyncWebSocket* _ws;
+    std::map<String, DashboardCard*> _cards;
+    String _title;
+    String _subtitle;
     
-    // Heartbeat tracking
-    unsigned long _lastHeartbeat;
-     
-     void handleWebSocketMessage(AsyncWebSocketClient* client, const String& message) {
-         StaticJsonDocument<1024> doc;
-         DeserializationError error = deserializeJson(doc, message);
+    // OTA state
+    bool _otaInProgress;
+    size_t _otaSize;
+    size_t _otaReceived;
+    
+   // HTML data (for PROGMEM)
+   const uint8_t* _htmlData;
+   size_t _htmlSize;
+   
+   // Heartbeat tracking
+   unsigned long _lastHeartbeat;
+   
+   // Tab configuration
+   bool _enableOTA;
+   bool _enableConsole;
+   
+   // Global command handler (for console tab)
+   std::function<void(const String&)> _onCommand;
+   
+   // Firmware version info (for OTA tab)
+   String _version;
+   String _lastUpdate;
+    
+    void handleWebSocketMessage(AsyncWebSocketClient* client, const String& message) {
+        StaticJsonDocument<1024> doc;
+        DeserializationError error = deserializeJson(doc, message);
          
          if (error) {
              Serial.println("[Dashboard] JSON parse error");
              return;
          }
-         
-         String type = doc["type"].as<String>();
-         
-         if (type == "init") {
-             sendCardsToClient(client);
-         } else if (type == "action") {
-             String cardId = doc["cardId"].as<String>();
-             String action = doc["action"].as<String>();
-             JsonObject data = doc["data"].as<JsonObject>();
-             
-             if (_cards.find(cardId) != _cards.end()) {
-                 _cards[cardId]->handleAction(action, data);
-                 
-                 // Handle OTA actions
- #if defined(ARDUINO_ARCH_ESP32)
-                 if (action == "ota_start") {
-                     _otaSize = data["size"].as<size_t>();
-                     _otaReceived = 0;
-                     _otaInProgress = true;
-                     
-                     if (!Update.begin(_otaSize)) {
-                         Serial.println("[Dashboard] OTA begin failed");
-                         _otaInProgress = false;
-                     }
-                 } else if (action == "ota_chunk" && _otaInProgress) {
-                     String b64Data = data["data"].as<String>();
-                     size_t len = base64_decode_length(b64Data);
-                     uint8_t* decoded = new uint8_t[len];
-                     base64_decode(b64Data, decoded);
-                     
-                     Update.write(decoded, len);
-                     _otaReceived += len;
-                     
-                     delete[] decoded;
-                 } else if (action == "ota_end" && _otaInProgress) {
-                     if (Update.end(true)) {
-                         Serial.println("[Dashboard] OTA complete, restarting...");
-                         delay(1000);
-                         ESP.restart();
-                     } else {
-                         Serial.println("[Dashboard] OTA end failed");
-                     }
-                     _otaInProgress = false;
-                 }
- #else
-                 if (action == "ota_start" || action == "ota_chunk" || action == "ota_end") {
-                     Serial.println("[Dashboard] OTA not supported on this platform");
-                     _otaInProgress = false;
-                 }
- #endif
-             }
-         }
-     }
+        
+        String type = doc["type"].as<String>();
+        
+        if (type == "init") {
+            sendCardsToClient(client);
+        } else if (type == "action") {
+            String cardId = doc["cardId"].as<String>();
+            String action = doc["action"].as<String>();
+            JsonObject data = doc["data"].as<JsonObject>();
+            
+            if (_cards.find(cardId) != _cards.end()) {
+                _cards[cardId]->handleAction(action, data);
+                
+                // Handle OTA actions
+#if defined(ARDUINO_ARCH_ESP32)
+                if (action == "ota_start") {
+                    _otaSize = data["size"].as<size_t>();
+                    _otaReceived = 0;
+                    _otaInProgress = true;
+                    
+                    if (!Update.begin(_otaSize)) {
+                        Serial.println("[Dashboard] OTA begin failed");
+                        _otaInProgress = false;
+                    }
+                } else if (action == "ota_chunk" && _otaInProgress) {
+                    String b64Data = data["data"].as<String>();
+                    size_t len = base64_decode_length(b64Data);
+                    uint8_t* decoded = new uint8_t[len];
+                    base64_decode(b64Data, decoded);
+                    
+                    Update.write(decoded, len);
+                    _otaReceived += len;
+                    
+                    delete[] decoded;
+                } else if (action == "ota_end" && _otaInProgress) {
+                    if (Update.end(true)) {
+                        Serial.println("[Dashboard] OTA complete, restarting...");
+                        delay(1000);
+                        ESP.restart();
+                    } else {
+                        Serial.println("[Dashboard] OTA end failed");
+                    }
+                    _otaInProgress = false;
+                }
+#else
+                if (action == "ota_start" || action == "ota_chunk" || action == "ota_end") {
+                    Serial.println("[Dashboard] OTA not supported on this platform");
+                    _otaInProgress = false;
+                }
+#endif
+            }
+        } else if (type == "command") {
+            // Global command from console tab
+            String command = doc["command"].as<String>();
+            if (_onCommand) {
+                _onCommand(command);
+            }
+        } else if (type == "ota_start" || type == "ota_chunk" || type == "ota_end") {
+            // Handle OTA from the dedicated OTA tab (not card-based)
+#if defined(ARDUINO_ARCH_ESP32)
+            if (type == "ota_start") {
+                _otaSize = doc["size"].as<size_t>();
+                _otaReceived = 0;
+                _otaInProgress = true;
+                
+                if (!Update.begin(_otaSize)) {
+                    Serial.println("[Dashboard] OTA begin failed");
+                    _otaInProgress = false;
+                }
+            } else if (type == "ota_chunk" && _otaInProgress) {
+                String b64Data = doc["data"].as<String>();
+                size_t len = base64_decode_length(b64Data);
+                uint8_t* decoded = new uint8_t[len];
+                base64_decode(b64Data, decoded);
+                
+                Update.write(decoded, len);
+                _otaReceived += len;
+                
+                delete[] decoded;
+            } else if (type == "ota_end" && _otaInProgress) {
+                if (Update.end(true)) {
+                    Serial.println("[Dashboard] OTA complete, restarting...");
+                    delay(1000);
+                    ESP.restart();
+                } else {
+                    Serial.println("[Dashboard] OTA end failed");
+                }
+                _otaInProgress = false;
+            }
+#else
+            Serial.println("[Dashboard] OTA not supported on this platform");
+#endif
+        }
+    }
      
-     void sendCardsToClient(AsyncWebSocketClient* client) {
-         DynamicJsonDocument doc(8192);
-         doc["type"] = "init";
-         JsonArray cardsArray = doc.createNestedArray("cards");
-         
-         for (auto& pair : _cards) {
-             JsonObject card = cardsArray.createNestedObject();
-             pair.second->toJson(card);
-         }
-         
-         String output;
-         serializeJson(doc, output);
-         client->text(output);
-     }
+    void sendCardsToClient(AsyncWebSocketClient* client) {
+        DynamicJsonDocument doc(8192);
+        doc["type"] = "init";
+        doc["title"] = _title;
+        if (_subtitle.length() > 0) {
+            doc["subtitle"] = _subtitle;
+        }
+        doc["enableOTA"] = _enableOTA;
+        doc["enableConsole"] = _enableConsole;
+        
+        // Include version info for OTA tab
+        if (_version.length() > 0) {
+            doc["version"] = _version;
+        }
+        if (_lastUpdate.length() > 0) {
+            doc["lastUpdate"] = _lastUpdate;
+        }
+        
+        JsonArray cardsArray = doc.createNestedArray("cards");
+        
+        for (auto& pair : _cards) {
+            JsonObject card = cardsArray.createNestedObject();
+            pair.second->toJson(card);
+        }
+        
+        String output;
+        serializeJson(doc, output);
+        client->text(output);
+    }
      
      // Base64 helpers
      size_t base64_decode_length(const String& input) {
@@ -985,7 +1057,8 @@ public:
     ESPDashboardPlus(const String& title = "ESP32 Dashboard") 
         : _title(title), _server(nullptr), _ws(nullptr), 
           _otaInProgress(false), _otaSize(0), _otaReceived(0),
-          _htmlData(nullptr), _htmlSize(0), _lastHeartbeat(0) {}
+          _htmlData(nullptr), _htmlSize(0), _lastHeartbeat(0),
+          _enableOTA(true), _enableConsole(true) {}
      
      ~ESPDashboardPlus() {
          for (auto& pair : _cards) {
@@ -994,49 +1067,62 @@ public:
          _cards.clear();
      }
  
- // Backwards compatibility alias
- using ESPDashboard = ESPDashboardPlus;
-     
-     /**
-      * Initialize dashboard with PROGMEM HTML data
-      * Use html_to_header.py to generate the header file
-      */
-     void begin(AsyncWebServer* server, const uint8_t* htmlData, size_t htmlSize, const String& wsPath = "/ws") {
-         _server = server;
-         _ws = new AsyncWebSocket(wsPath);
-         _htmlData = htmlData;
-         _htmlSize = htmlSize;
-         
-         // WebSocket event handler
-         _ws->onEvent([this](AsyncWebSocket* server, AsyncWebSocketClient* client, 
-                            AwsEventType type, void* arg, uint8_t* data, size_t len) {
-             if (type == WS_EVT_CONNECT) {
-                 Serial.printf("[Dashboard] Client #%u connected\n", client->id());
-                 sendCardsToClient(client);
-             } else if (type == WS_EVT_DISCONNECT) {
-                 Serial.printf("[Dashboard] Client #%u disconnected\n", client->id());
-             } else if (type == WS_EVT_DATA) {
-                 AwsFrameInfo* info = (AwsFrameInfo*)arg;
-                 if (info->opcode == WS_TEXT) {
-                     String message = String((char*)data).substring(0, len);
-                     handleWebSocketMessage(client, message);
-                 }
-             }
-         });
-         
-         _server->addHandler(_ws);
-         
-         // Serve compressed dashboard HTML from PROGMEM
-         _server->on("/", HTTP_GET, [this](AsyncWebServerRequest* request) {
-             AsyncWebServerResponse* response = request->beginResponse_P(
-                 200, "text/html", _htmlData, _htmlSize);
-             response->addHeader("Content-Encoding", "gzip");
-             response->addHeader("Cache-Control", "max-age=86400");
-             request->send(response);
-         });
-         
-         Serial.println("[Dashboard] Initialized with PROGMEM HTML");
-     }
+// Backwards compatibility alias
+using ESPDashboard = ESPDashboardPlus;
+    
+    /**
+     * Initialize dashboard with PROGMEM HTML data
+     * Use html_to_header.py to generate the header file
+     * 
+     * @param server The AsyncWebServer instance
+     * @param htmlData The PROGMEM HTML data
+     * @param htmlSize The size of the HTML data
+     * @param enableOTA Enable the OTA firmware update tab
+     * @param enableConsole Enable the console log tab
+     * @param wsPath The WebSocket path (default: "/ws")
+     */
+    void begin(AsyncWebServer* server, const uint8_t* htmlData, size_t htmlSize, 
+               bool enableOTA = true, bool enableConsole = true, const String& wsPath = "/ws") {
+        _server = server;
+        _ws = new AsyncWebSocket(wsPath);
+        _htmlData = htmlData;
+        _htmlSize = htmlSize;
+        _enableOTA = enableOTA;
+        _enableConsole = enableConsole;
+        
+        // WebSocket event handler
+        _ws->onEvent([this](AsyncWebSocket* server, AsyncWebSocketClient* client, 
+                           AwsEventType type, void* arg, uint8_t* data, size_t len) {
+            if (type == WS_EVT_CONNECT) {
+                Serial.printf("[Dashboard] Client #%u connected\n", client->id());
+                sendCardsToClient(client);
+            } else if (type == WS_EVT_DISCONNECT) {
+                Serial.printf("[Dashboard] Client #%u disconnected\n", client->id());
+            } else if (type == WS_EVT_DATA) {
+                AwsFrameInfo* info = (AwsFrameInfo*)arg;
+                if (info->opcode == WS_TEXT) {
+                    String message = String((char*)data).substring(0, len);
+                    handleWebSocketMessage(client, message);
+                }
+            }
+        });
+        
+        _server->addHandler(_ws);
+        
+        // Serve compressed dashboard HTML from PROGMEM
+        _server->on("/", HTTP_GET, [this](AsyncWebServerRequest* request) {
+            AsyncWebServerResponse* response = request->beginResponse_P(
+                200, "text/html", _htmlData, _htmlSize);
+            response->addHeader("Content-Encoding", "gzip");
+            response->addHeader("Cache-Control", "max-age=86400");
+            request->send(response);
+        });
+        
+        Serial.println("[Dashboard] Initialized with PROGMEM HTML");
+        Serial.printf("[Dashboard] OTA: %s, Console: %s\n", 
+                      enableOTA ? "enabled" : "disabled", 
+                      enableConsole ? "enabled" : "disabled");
+    }
      
     void loop() {
         if (_ws) {
@@ -1051,7 +1137,35 @@ public:
         }
     }
      
-     void setTitle(const String& title) { _title = title; }
+    void setTitle(const String& title) { _title = title; }
+    void setSubtitle(const String& subtitle) { _subtitle = subtitle; }
+    void setTitle(const String& title, const String& subtitle) { _title = title; _subtitle = subtitle; }
+    
+    /**
+     * Set version info for OTA tab display
+     */
+    void setVersionInfo(const String& version, const String& lastUpdate = "") {
+        _version = version;
+        _lastUpdate = lastUpdate;
+    }
+    
+    /**
+     * Set the global command handler for console tab input
+     * This is called when a user sends a command from the Console tab
+     */
+    void onCommand(std::function<void(const String&)> handler) {
+        _onCommand = handler;
+    }
+    
+    /**
+     * Check if OTA is enabled
+     */
+    bool isOTAEnabled() const { return _enableOTA; }
+    
+    /**
+     * Check if Console is enabled
+     */
+    bool isConsoleEnabled() const { return _enableConsole; }
      
      // Broadcast update to all clients
      void broadcastUpdate(const String& cardId, JsonObject& data) {
@@ -1317,80 +1431,155 @@ public:
          }
      }
      
-     // ========================================
-     // Console Log Functions (Serial.println-like API)
-     // ========================================
+    // ========================================
+    // Console Log Functions (Serial.println-like API)
+    // ========================================
+    
+    /**
+     * Log a debug message to the console card
+     */
+    void logDebug(const String& consoleId, const String& message) {
+        logToConsole(consoleId, LogLevel::DEBUG, message);
+    }
+    
+    /**
+     * Log an info message to the console card
+     */
+    void logInfo(const String& consoleId, const String& message) {
+        logToConsole(consoleId, LogLevel::INFO, message);
+    }
+    
+    /**
+     * Log a warning message to the console card
+     */
+    void logWarning(const String& consoleId, const String& message) {
+        logToConsole(consoleId, LogLevel::WARNING, message);
+    }
+    
+    /**
+     * Log an error message to the console card
+     */
+    void logError(const String& consoleId, const String& message) {
+        logToConsole(consoleId, LogLevel::ERROR, message);
+    }
+    
+    /**
+     * Generic log function with level
+     */
+    void log(const String& consoleId, LogLevel level, const String& message) {
+        logToConsole(consoleId, level, message);
+    }
+    
+    /**
+     * Clear all logs from a console card
+     */
+    void clearConsole(const String& consoleId) {
+        ConsoleCard* card = static_cast<ConsoleCard*>(getCard(consoleId));
+        if (card && card->type == CardType::CONSOLE) {
+            card->clear();
+            
+            DynamicJsonDocument doc(512);
+            JsonObject data = doc.to<JsonObject>();
+            JsonArray logsArr = data["logs"].to<JsonArray>();
+            broadcastUpdate(consoleId, data);
+        }
+    }
+    
+    // ========================================
+    // Global Log Functions (without card ID)
+    // Logs to Console tab if enableConsole = true
+    // ========================================
+    
+    /**
+     * Log a debug message to the Console tab (no card required)
+     */
+    void logDebug(const String& message) {
+        broadcastLog(LogLevel::DEBUG, message);
+    }
+    
+    /**
+     * Log an info message to the Console tab (no card required)
+     */
+    void logInfo(const String& message) {
+        broadcastLog(LogLevel::INFO, message);
+    }
+    
+    /**
+     * Log a warning message to the Console tab (no card required)
+     */
+    void logWarning(const String& message) {
+        broadcastLog(LogLevel::WARNING, message);
+    }
+    
+    /**
+     * Log an error message to the Console tab (no card required)
+     */
+    void logError(const String& message) {
+        broadcastLog(LogLevel::ERROR, message);
+    }
+    
+    /**
+     * Generic log function with level (no card required)
+     */
+    void log(LogLevel level, const String& message) {
+        broadcastLog(level, message);
+    }
      
-     /**
-      * Log a debug message to the console card
-      */
-     void logDebug(const String& consoleId, const String& message) {
-         logToConsole(consoleId, LogLevel::DEBUG, message);
-     }
-     
-     /**
-      * Log an info message to the console card
-      */
-     void logInfo(const String& consoleId, const String& message) {
-         logToConsole(consoleId, LogLevel::INFO, message);
-     }
-     
-     /**
-      * Log a warning message to the console card
-      */
-     void logWarning(const String& consoleId, const String& message) {
-         logToConsole(consoleId, LogLevel::WARNING, message);
-     }
-     
-     /**
-      * Log an error message to the console card
-      */
-     void logError(const String& consoleId, const String& message) {
-         logToConsole(consoleId, LogLevel::ERROR, message);
-     }
-     
-     /**
-      * Generic log function with level
-      */
-     void log(const String& consoleId, LogLevel level, const String& message) {
-         logToConsole(consoleId, level, message);
-     }
-     
-     /**
-      * Clear all logs from a console card
-      */
-     void clearConsole(const String& consoleId) {
-         ConsoleCard* card = static_cast<ConsoleCard*>(getCard(consoleId));
-         if (card && card->type == CardType::CONSOLE) {
-             card->clear();
-             
-             DynamicJsonDocument doc(512);
-             JsonObject data = doc.to<JsonObject>();
-             JsonArray logsArr = data["logs"].to<JsonArray>();
-             broadcastUpdate(consoleId, data);
-         }
-     }
-     
- private:
-     void logToConsole(const String& consoleId, LogLevel level, const String& message) {
-         ConsoleCard* card = static_cast<ConsoleCard*>(getCard(consoleId));
-         if (card && card->type == CardType::CONSOLE) {
-             card->addLog(level, message);
-             
-             // Broadcast the new log entry
-             DynamicJsonDocument doc(4096);
-             JsonObject data = doc.to<JsonObject>();
-             JsonArray logsArr = data["logs"].to<JsonArray>();
-             for (const LogEntry& entry : card->logs) {
-                 JsonObject logObj = logsArr.add<JsonObject>();
-                 logObj["timestamp"] = entry.timestamp;
-                 logObj["level"] = card->getLogLevelString(entry.level);
-                 logObj["message"] = entry.message;
-             }
-             broadcastUpdate(consoleId, data);
-         }
-     }
- };
- 
- #endif // ESP_DASHBOARD_PLUS_H
+private:
+    void logToConsole(const String& consoleId, LogLevel level, const String& message) {
+        ConsoleCard* card = static_cast<ConsoleCard*>(getCard(consoleId));
+        if (card && card->type == CardType::CONSOLE) {
+            card->addLog(level, message);
+            
+            // Broadcast the new log entry
+            DynamicJsonDocument doc(4096);
+            JsonObject data = doc.to<JsonObject>();
+            JsonArray logsArr = data["logs"].to<JsonArray>();
+            for (const LogEntry& entry : card->logs) {
+                JsonObject logObj = logsArr.add<JsonObject>();
+                logObj["timestamp"] = entry.timestamp;
+                logObj["level"] = card->getLogLevelString(entry.level);
+                logObj["message"] = entry.message;
+            }
+            broadcastUpdate(consoleId, data);
+        }
+    }
+    
+    // Broadcast log directly to Console tab (without a card)
+    void broadcastLog(LogLevel level, const String& message) {
+        if (!_ws || !_enableConsole) return;
+        
+        // Get timestamp
+        unsigned long ms = millis();
+        unsigned long secs = ms / 1000;
+        unsigned long mins = secs / 60;
+        unsigned long hours = mins / 60;
+        
+        char timestamp[16];
+        snprintf(timestamp, sizeof(timestamp), "%02lu:%02lu:%02lu.%03lu", 
+                 hours % 24, mins % 60, secs % 60, ms % 1000);
+        
+        // Convert level to string
+        String levelStr;
+        switch (level) {
+            case LogLevel::DEBUG: levelStr = "debug"; break;
+            case LogLevel::INFO: levelStr = "info"; break;
+            case LogLevel::WARNING: levelStr = "warning"; break;
+            case LogLevel::ERROR: levelStr = "error"; break;
+            default: levelStr = "info"; break;
+        }
+        
+        StaticJsonDocument<512> doc;
+        doc["type"] = "log";
+        doc["timestamp"] = timestamp;
+        doc["level"] = levelStr;
+        doc["message"] = message;
+        
+        String output;
+        serializeJson(doc, output);
+        _ws->textAll(output);
+    }
+};
+
+#endif // ESP_DASHBOARD_PLUS_H
  

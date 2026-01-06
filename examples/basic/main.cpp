@@ -64,7 +64,34 @@ void setup() {
     Serial.println(WiFi.localIP());
     
     // Initialize dashboard with PROGMEM HTML
-    dashboard.begin(&server, DASHBOARD_HTML_DATA, DASHBOARD_HTML_SIZE);
+    // Parameters: server, htmlData, htmlSize, enableOTA, enableConsole
+    dashboard.begin(&server, DASHBOARD_HTML_DATA, DASHBOARD_HTML_SIZE, true, true);
+    
+    // Set dashboard title and subtitle (displayed in browser)
+    dashboard.setTitle("My ESP32 Device", "Home Automation Hub");
+    
+    // Set firmware version info (displayed in OTA tab)
+    dashboard.setVersionInfo("1.0.0", "Never");
+    
+    // Set global command handler (for Console tab input)
+    dashboard.onCommand([](const String& command) {
+        Serial.printf("Console command received: %s\n", command.c_str());
+        
+        // Handle commands from the Console tab
+        if (command == "help") {
+            dashboard.logInfo("Available commands: help, status, reboot, version");
+        } else if (command == "status") {
+            dashboard.logInfo("System OK - Temp: " + String(temperature, 1) + "C, CPU: " + String(cpuUsage) + "%");
+        } else if (command == "version") {
+            dashboard.logInfo("ESP-DashboardPlus v1.0.0");
+        } else if (command == "reboot") {
+            dashboard.logWarning("Rebooting in 3 seconds...");
+            delay(3000);
+            ESP.restart();
+        } else {
+            dashboard.logWarning("Unknown command: " + command);
+        }
+    });
     
     // ========================================
     // STAT CARDS - Display sensor values
@@ -269,10 +296,31 @@ void setup() {
     consoleCard->onClear = []() {
         Serial.println("Console cleared by user");
     };
+    consoleCard->onCommand = [](const String& command) {
+        Serial.printf("Console command: %s\n", command.c_str());
+        
+        // Handle common commands
+        if (command == "help") {
+            dashboard.logInfo("console", "Available commands: help, status, reboot, version");
+        } else if (command == "status") {
+            dashboard.logInfo("console", "System OK - Temp: " + String(temperature, 1) + "C, CPU: " + String(cpuUsage) + "%");
+        } else if (command == "version") {
+            dashboard.logInfo("console", "ESP-DashboardPlus v1.0.0");
+        } else if (command == "reboot") {
+            dashboard.logWarning("console", "Rebooting in 3 seconds...");
+            delay(3000);
+            ESP.restart();
+        } else {
+            dashboard.logWarning("console", "Unknown command: " + command);
+        }
+    };
     
-    // Log some initial messages
+    // Log some initial messages (to ConsoleCard if it exists)
     dashboard.logInfo("console", "ESP-DashboardPlus initialized successfully");
     dashboard.logDebug("console", "WebSocket server started on port 80");
+    
+    // Also log to the global Console tab (no card required)
+    dashboard.logInfo("Dashboard started - OTA and Console tabs enabled");
     
     // Start server
     server.begin();
