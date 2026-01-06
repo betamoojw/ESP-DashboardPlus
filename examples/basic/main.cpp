@@ -269,6 +269,24 @@ void setup() {
     consoleCard->onClear = []() {
         Serial.println("Console cleared by user");
     };
+    consoleCard->onCommand = [](const String& command) {
+        Serial.printf("Console command: %s\n", command.c_str());
+        
+        // Handle common commands
+        if (command == "help") {
+            dashboard.logInfo("console", "Available commands: help, status, reboot, version");
+        } else if (command == "status") {
+            dashboard.logInfo("console", "System OK - Temp: " + String(temperature, 1) + "C, CPU: " + String(cpuUsage) + "%");
+        } else if (command == "version") {
+            dashboard.logInfo("console", "ESP-DashboardPlus v1.0.0");
+        } else if (command == "reboot") {
+            dashboard.logWarning("console", "Rebooting in 3 seconds...");
+            delay(3000);
+            ESP.restart();
+        } else {
+            dashboard.logWarning("console", "Unknown command: " + command);
+        }
+    };
     
     // Log some initial messages
     dashboard.logInfo("console", "ESP-DashboardPlus initialized successfully");

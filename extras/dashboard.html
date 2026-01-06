@@ -412,6 +412,66 @@
       font-size: 0.8rem;
     }
     
+    .console-input-container {
+      display: flex;
+      gap: 8px;
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-secondary);
+    }
+    
+    .console-input {
+      flex: 1;
+      padding: 10px 14px;
+      padding-left: 28px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+    }
+    
+    .console-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    
+    .console-input-prefix {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+    
+    .console-send-btn {
+      padding: 10px 16px;
+      background: var(--gradient-primary);
+      border: none;
+      border-radius: 8px;
+      color: var(--bg);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    
+    .console-send-btn:hover {
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+    
+    .console-send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
     .status-icon {
       width: 56px;
       height: 56px;
@@ -1384,6 +1444,16 @@
                     </div>
                   `).join('')}
                 </div>
+                <div class="console-input-container">
+                  <div style="position:relative;flex:1">
+                    <span class="console-input-prefix">$</span>
+                    <input type="text" class="console-input" id="console-input-${id}" placeholder="Enter command..." onkeydown="if(event.key==='Enter')sendConsoleCommand('${id}')">
+                  </div>
+                  <button class="console-send-btn" onclick="sendConsoleCommand('${id}')">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    Send
+                  </button>
+                </div>
               </div>
             </div>
           `;
@@ -1542,11 +1612,11 @@
 
           case 'slider': {
             const fill = el.querySelector('.slider-fill');
-            const valDisp = el.querySelector('.slider-container > div:last-child > div:nth-child(2)');
-            if (fill) {
-              const pct = Math.round(((card.config.value - (card.config.min||0))/((card.config.max||100)-(card.config.min||0)))*100);
-              fill.style.width = `${pct}%`;
-            }
+            const thumb = el.querySelector('.slider-thumb');
+            const valDisp = el.querySelector('.slider-value');
+            const pct = Math.round(((card.config.value - (card.config.min||0))/((card.config.max||100)-(card.config.min||0)))*100);
+            if (fill) fill.style.width = `${pct}%`;
+            if (thumb) thumb.style.left = `calc(${pct}% - 12px)`;
             if (valDisp) valDisp.textContent = card.config.value || 0;
             break;
           }
@@ -1677,6 +1747,33 @@
       cards[id].config.logs = [];
       sendAction(id, 'clear');
       updateCard(id);
+    }
+
+    function sendConsoleCommand(id) {
+      const input = document.getElementById(`console-input-${id}`);
+      if (!input || !input.value.trim()) return;
+      
+      const command = input.value.trim();
+      input.value = '';
+      
+      // Add command to local logs immediately
+      const now = new Date();
+      const timestamp = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}.${String(now.getMilliseconds()).padStart(3,'0')}`;
+      
+      if (!cards[id].config.logs) cards[id].config.logs = [];
+      cards[id].config.logs.push({
+        timestamp: timestamp,
+        level: 'info',
+        message: '> ' + command
+      });
+      
+      // Send command to ESP32
+      sendAction(id, 'command', { command: command });
+      updateCard(id);
+      
+      // Auto-scroll to bottom
+      const logsEl = document.getElementById(`console-logs-${id}`);
+      if (logsEl) logsEl.scrollTop = logsEl.scrollHeight;
     }
 
     function escapeHtml(text) {

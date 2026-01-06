@@ -6,7 +6,7 @@ nav_order: 1
 
 # ESP-DashboardPlus
 
-A real-time, on-device web dashboard library for ESP32/ESP8266 microcontrollers.
+A real-time, on-device web dashboard library for ESP32 microcontrollers.
 
 ## Features
 

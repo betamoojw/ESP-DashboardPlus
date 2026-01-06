@@ -6,7 +6,7 @@ nav_order: 4
 
 # API Reference
 
-Complete API documentation for ESP DashboardPlus.
+Complete API documentation for ESP-DashboardPlus.
 
 ---
 
@@ -22,7 +22,7 @@ ESPDashboardPlus(const String& title = "ESP32 Dashboard")
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `title` | `String` | "ESP32 DashboardPlus" | Dashboard title |
+| `title` | `String` | "ESP32-DashboardPlus" | Dashboard title |
 
 ### Methods
 

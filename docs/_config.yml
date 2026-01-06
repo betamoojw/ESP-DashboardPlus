@@ -1,5 +1,5 @@
 title: ESP DashboardPlus
-description: A real-time, on-device web dashboard library for ESP32/ESP8266 with OTA and console features.
+description: A real-time, on-device web dashboard library for ESP32 with OTA and console features.
 url: "https://aaronbeckmann.github.io"
 baseurl: "/ESP-DashboardPlus"
 

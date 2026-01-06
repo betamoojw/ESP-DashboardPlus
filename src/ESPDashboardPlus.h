@@ -776,6 +776,7 @@
      int maxEntries;
      bool autoScroll;
      std::function<void()> onClear;
+     std::function<void(const String&)> onCommand;
      
      ConsoleCard(const String& id, const String& title = "Console Log", int maxEntries = 100)
          : DashboardCard(id, CardType::CONSOLE, title), maxEntries(maxEntries), autoScroll(true) {}
@@ -799,6 +800,9 @@
          if (action == "clear") {
              logs.clear();
              if (onClear) onClear();
+         } else if (action == "command" && !data["command"].isNull()) {
+             String cmd = data["command"].as<String>();
+             if (onCommand) onCommand(cmd);
          }
      }
      
