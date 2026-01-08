@@ -253,9 +253,23 @@ void updateGaugeCard(const String& id, float value)
 
 ### updateChartCard()
 
+Update a single-series chart or the legacy data array:
+
 ```cpp
 void updateChartCard(const String& id, float value)
 ```
+
+Update a specific series in a multi-series chart:
+
+```cpp
+void updateChartCard(const String& id, int seriesIndex, float value)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | `String` | Chart card ID |
+| `value` | `float` | New data point value |
+| `seriesIndex` | `int` | Index of the series to update (0-based) |
 
 ### updateToggleCard()
 
@@ -354,6 +368,67 @@ Remove a card from the dashboard.
 
 ```cpp
 void removeCard(const String& id)
+```
+
+### setWeight()
+
+Set the display order weight for a card. Cards with lower weight appear first within their group (or globally if no groups defined).
+
+```cpp
+card->setWeight(int weight)
+```
+
+### getWeight()
+
+Get the current weight of a card.
+
+```cpp
+int weight = card->getWeight()
+```
+
+---
+
+## Card Grouping
+
+Organize cards into visual groups with section headers. Groups are optional - if no groups are defined, cards display in a flat grid without section titles.
+
+### addGroup()
+
+Create a card group with a section title.
+
+```cpp
+void addGroup(const String& id, const String& title)
+void addGroup(const String& id, const String& title, std::initializer_list<String> cardIds)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | `String` | Unique group identifier |
+| `title` | `String` | Section header displayed above cards |
+| `cardIds` | `initializer_list` | Optional initial cards to include |
+
+### addCardToGroup()
+
+Add a card to an existing group.
+
+```cpp
+void addCardToGroup(const String& groupId, const String& cardId)
+```
+
+### removeCardFromGroup()
+
+Remove a card from a group (card remains on dashboard, just ungrouped).
+
+```cpp
+void removeCardFromGroup(const String& groupId, const String& cardId)
+```
+
+### removeGroup()
+
+Remove a group entirely (cards remain, just ungrouped).
+
+```cpp
+void removeGroup(const String& id)
 ```
 
 ---

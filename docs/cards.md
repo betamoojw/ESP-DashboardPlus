@@ -14,6 +14,94 @@ ESP DashboardPlus provides 14 different card types for building your dashboard. 
 
 > **Note**: OTA and Console are available as **tabs only**, not dashboard cards. Use `enableOTA` and `enableConsole` in `begin()` to control visibility.
 
+---
+
+## Card Grouping
+
+Cards can be organized into visual groups with section headers. If no groups are defined, all cards are displayed in a single flat grid without section headers.
+
+### Creating Groups
+
+```cpp
+// Create a group and add cards to it
+dashboard.addGroup("sensors", "Sensor Data");
+dashboard.addCardToGroup("sensors", "temp");
+dashboard.addCardToGroup("sensors", "humidity");
+
+// Or create with initial cards
+dashboard.addGroup("controls", "Device Controls", {"led", "brightness", "fan"});
+```
+
+### Group Methods
+
+| Method | Parameters | Description |
+|--------|------------|-------------|
+| `addGroup()` | `id, title` | Create an empty group with a section title |
+| `addGroup()` | `id, title, {cardIds...}` | Create a group with initial cards |
+| `addCardToGroup()` | `groupId, cardId` | Add a card to an existing group |
+| `removeCardFromGroup()` | `groupId, cardId` | Remove a card from a group |
+| `removeGroup()` | `id` | Remove a group (cards remain, just ungrouped) |
+
+### Behavior
+
+- **With groups**: Cards in groups appear under their section headers; ungrouped cards appear under "Other"
+- **Without groups**: All cards appear in a single grid with no section headers
+
+---
+
+## Card Ordering (Weight)
+
+Cards are displayed in ascending order by weight within their group (or globally if no groups). Lower weight values appear first. Default weight is 0.
+
+### Setting Weight
+
+```cpp
+// Set weight directly on the card
+StatCard* temp = dashboard.addStatCard("temp", "Temperature", "23.5", "°C");
+temp->setWeight(10);  // Appears after cards with weight < 10
+
+// Create cards with different weights for ordering
+dashboard.addStatCard("humidity", "Humidity", "65", "%")->setWeight(20);
+dashboard.addStatCard("pressure", "Pressure", "1013", "hPa")->setWeight(30);
+```
+
+### Weight Methods
+
+| Method | Parameters | Description |
+|--------|------------|-------------|
+| `setWeight()` | `int weight` | Set the display order weight |
+| `getWeight()` | - | Get the current weight value |
+
+### Example with Groups and Weights
+
+```cpp
+// Create groups
+dashboard.addGroup("sensors", "Sensor Data");
+dashboard.addGroup("controls", "Controls");
+
+// Add cards with weights (lower = first)
+auto* temp = dashboard.addStatCard("temp", "Temperature", "23.5", "°C");
+temp->setWeight(10);
+
+auto* humidity = dashboard.addStatCard("humidity", "Humidity", "65", "%");
+humidity->setWeight(20);
+
+auto* led = dashboard.addToggleCard("led", "LED", "Enable", false);
+led->setWeight(10);
+
+auto* brightness = dashboard.addSliderCard("brightness", "Brightness", 0, 100);
+brightness->setWeight(20);
+
+// Add to groups
+dashboard.addCardToGroup("sensors", "temp");
+dashboard.addCardToGroup("sensors", "humidity");
+dashboard.addCardToGroup("controls", "led");
+dashboard.addCardToGroup("controls", "brightness");
+
+// Result: Within "Sensor Data": temp (10), humidity (20)
+//         Within "Controls": led (10), brightness (20)
+```
+
 ## Tab Configuration
 
 You can enable or disable the Console and OTA tabs during initialization:
@@ -173,14 +261,14 @@ dashboard.updateGaugeCard("cpu", 72);
 
 ## ChartCard
 
-Displays a time-series chart with multiple chart type options.
+Displays a time-series chart with multiple chart type options. Supports both single-series and multi-series data.
 
 ### Visual Representation
 
 ```
 ┌─────────────────────────────────────┐
 │  Temperature History                │
-│                                     │
+│  ● Indoor  ● Outdoor                │
 │     25 ┤      ●                     │
 │     24 ┤   ●     ●    ●             │
 │     23 ┤ ●         ●     ●          │
@@ -199,7 +287,7 @@ Displays a time-series chart with multiple chart type options.
 | `SCATTER` | Scatter plot with round points |
 | `STEP` | Step/staircase line chart |
 
-### Example
+### Single-Series Example
 
 ```cpp
 ChartCard* tempChart = dashboard.addChartCard(
@@ -214,6 +302,32 @@ tempChart->setVariant(CardVariant::PRIMARY);
 dashboard.updateChartCard("temp-chart", 23.5);
 dashboard.updateChartCard("temp-chart", 24.0);
 ```
+
+### Multi-Series Example
+
+```cpp
+ChartCard* multiChart = dashboard.addChartCard(
+    "multi-chart",
+    "Indoor vs Outdoor",
+    ChartType::LINE,
+    30
+);
+
+// Add series with name and color
+multiChart->addSeries("Indoor", "#00D4AA");   // Series 0
+multiChart->addSeries("Outdoor", "#3B82F6");  // Series 1
+
+// Update specific series by index
+dashboard.updateChartCard("multi-chart", 0, 22.5);  // Indoor
+dashboard.updateChartCard("multi-chart", 1, 18.2);  // Outdoor
+```
+
+### Series Methods
+
+| Method | Parameters | Description |
+|--------|------------|-------------|
+| `addSeries()` | `name, color` | Add a new data series with name and hex color |
+| `addDataPoint()` | `seriesIndex, value` | Add data point to specific series |
 
 ---
 
