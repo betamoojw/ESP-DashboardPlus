@@ -48,35 +48,39 @@
  class ESPDashboardPlus;
  class DashboardCard;
  
- // Callback types
- typedef std::function<void()> ButtonCallback;
- typedef std::function<void(const String&)> InputCallback;
- typedef std::function<void(bool)> ToggleCallback;
- typedef std::function<void(int)> SliderCallback;
- typedef std::function<void(const String&)> ColorCallback;
- typedef std::function<void(const String&)> DropdownCallback;
- typedef std::function<void(const String&, int, const String&)> TimezoneCallback;
- typedef std::function<void(const String&)> DateCallback;
+// Callback types
+typedef std::function<void()> ButtonCallback;
+typedef std::function<void(const String&)> InputCallback;
+typedef std::function<void(bool)> ToggleCallback;
+typedef std::function<void(int)> SliderCallback;
+typedef std::function<void(const String&)> ColorCallback;
+typedef std::function<void(const String&)> DropdownCallback;
+typedef std::function<void(const String&, int, const String&)> TimezoneCallback;
+typedef std::function<void(const String&)> DateCallback;
+typedef std::function<void(const String&)> TimeCallback;
+typedef std::function<void(float, float)> LocationCallback;
  
- // Card types
- enum class CardType {
-     STAT,
-     CHART,
-     BUTTON,
-     ACTION,
-     DATA_INPUT,
-     COLOR,
-     DROPDOWN,
-     OTA,
-     GAUGE,
-     TOGGLE,
-     SLIDER,
-     LINK,
-     TIMEZONE,
-     DATE,
-     STATUS,
-     CONSOLE
- };
+// Card types
+enum class CardType {
+    STAT,
+    CHART,
+    BUTTON,
+    ACTION,
+    DATA_INPUT,
+    COLOR,
+    DROPDOWN,
+    OTA,
+    GAUGE,
+    TOGGLE,
+    SLIDER,
+    LINK,
+    TIMEZONE,
+    DATE,
+    TIME,
+    LOCATION,
+    STATUS,
+    CONSOLE
+};
  
  // Log levels for console
  enum class LogLevel {
@@ -192,6 +196,8 @@ public:
              case CardType::LINK: return "link";
              case CardType::TIMEZONE: return "timezone";
              case CardType::DATE: return "date";
+             case CardType::TIME: return "time";
+             case CardType::LOCATION: return "location";
              case CardType::STATUS: return "status";
              case CardType::CONSOLE: return "console";
              default: return "stat";
@@ -514,7 +520,7 @@ public:
      void setCallback(TimezoneCallback cb) { callback = cb; }
  };
  
- /**
+/**
   * Date Card - Date/DateTime picker
   */
  class DateCard : public DashboardCard {
@@ -552,6 +558,82 @@ public:
      void setCallback(DateCallback cb) { callback = cb; }
      void setRange(const String& min, const String& max) { minDate = min; maxDate = max; }
      void setValue(const String& val) { value = val; }
+ };
+ 
+ /**
+  * Time Card - Time picker (HH:MM or HH:MM:SS)
+  */
+ class TimeCard : public DashboardCard {
+ public:
+     String value;
+     bool includeSeconds;
+     TimeCallback callback;
+     
+     TimeCard(const String& id, const String& title, bool includeSeconds = false)
+         : DashboardCard(id, CardType::TIME, title), includeSeconds(includeSeconds) {}
+     
+    void toJson(JsonObject& card) override {
+        card["id"] = id;
+        card["type"] = typeToString(type);
+        card["weight"] = weight;
+        JsonObject config = card.createNestedObject("config");
+        config["title"] = title;
+        config["value"] = value;
+        config["includeSeconds"] = includeSeconds;
+        if (sizeX > 1) config["sizeX"] = sizeX;
+        if (sizeY > 1) config["sizeY"] = sizeY;
+    }
+     
+     void handleAction(const String& action, JsonObject& data) override {
+         if (action == "change" && !data["value"].isNull()) {
+             value = data["value"].as<String>();
+             if (callback) callback(value);
+         }
+     }
+     
+     void setCallback(TimeCallback cb) { callback = cb; }
+     void setValue(const String& val) { value = val; }
+ };
+ 
+ /**
+  * Location Card - Latitude/Longitude picker with browser geolocation
+  */
+ class LocationCard : public DashboardCard {
+ public:
+     float latitude;
+     float longitude;
+     String label;
+     LocationCallback callback;
+     
+     LocationCard(const String& id, const String& title, const String& label = "Get Current Location")
+         : DashboardCard(id, CardType::LOCATION, title), label(label), latitude(0), longitude(0) {
+         variant = CardVariant::INFO;
+     }
+     
+    void toJson(JsonObject& card) override {
+        card["id"] = id;
+        card["type"] = typeToString(type);
+        card["weight"] = weight;
+        JsonObject config = card.createNestedObject("config");
+        config["title"] = title;
+        config["label"] = label;
+        config["latitude"] = latitude;
+        config["longitude"] = longitude;
+        config["variant"] = variantToString(variant);
+        if (sizeX > 1) config["sizeX"] = sizeX;
+        if (sizeY > 1) config["sizeY"] = sizeY;
+    }
+     
+     void handleAction(const String& action, JsonObject& data) override {
+         if (action == "location") {
+             latitude = data["latitude"].as<float>();
+             longitude = data["longitude"].as<float>();
+             if (callback) callback(latitude, longitude);
+         }
+     }
+     
+     void setCallback(LocationCallback cb) { callback = cb; }
+     void setLocation(float lat, float lon) { latitude = lat; longitude = lon; }
  };
  
  /**
@@ -1456,6 +1538,18 @@ using ESPDashboard = ESPDashboardPlus;
          return card;
      }
      
+     TimeCard* addTimeCard(const String& id, const String& title, bool includeSeconds = false) {
+         TimeCard* card = new TimeCard(id, title, includeSeconds);
+         _cards[id] = card;
+         return card;
+     }
+     
+     LocationCard* addLocationCard(const String& id, const String& title, const String& label = "Get Current Location") {
+         LocationCard* card = new LocationCard(id, title, label);
+         _cards[id] = card;
+         return card;
+     }
+     
      ActionButton* addActionButton(const String& id, const String& title, const String& label,
                                    const String& confirmTitle, const String& confirmMsg, ButtonCallback cb) {
          ActionButton* card = new ActionButton(id, title, label, confirmTitle, confirmMsg, cb);
@@ -1722,6 +1816,31 @@ using ESPDashboard = ESPDashboardPlus;
              StaticJsonDocument<256> doc;
              JsonObject data = doc.to<JsonObject>();
              data["value"] = value;
+             broadcastUpdate(id, data);
+         }
+     }
+     
+     void updateTimeCard(const String& id, const String& value) {
+         TimeCard* card = static_cast<TimeCard*>(getCard(id));
+         if (card && card->type == CardType::TIME) {
+             card->setValue(value);
+             
+             StaticJsonDocument<256> doc;
+             JsonObject data = doc.to<JsonObject>();
+             data["value"] = value;
+             broadcastUpdate(id, data);
+         }
+     }
+     
+     void updateLocationCard(const String& id, float latitude, float longitude) {
+         LocationCard* card = static_cast<LocationCard*>(getCard(id));
+         if (card && card->type == CardType::LOCATION) {
+             card->setLocation(latitude, longitude);
+             
+             StaticJsonDocument<256> doc;
+             JsonObject data = doc.to<JsonObject>();
+             data["latitude"] = latitude;
+             data["longitude"] = longitude;
              broadcastUpdate(id, data);
          }
      }

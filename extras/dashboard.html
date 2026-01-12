@@ -1956,6 +1956,47 @@
             </div>
           `;
           
+        case 'time':
+          return `
+            <div class="card" data-id="${id}" style="${sizeStyle}"><div class="update-indicator"></div>
+              <div class="card-title">${config.title || 'Time'}</div>
+              <input type="time" class="date-input" id="time-${id}" value="${config.value || ''}" ${config.includeSeconds ? 'step="1"' : ''} onchange="changeTime('${id}', this.value)">
+            </div>
+          `;
+          
+        case 'location':
+          const hasLocation = config.latitude !== 0 || config.longitude !== 0;
+          return `
+            <div class="card" data-id="${id}" style="${sizeStyle}"><div class="update-indicator"></div>
+              <div class="card-title">${config.title || 'Location'}</div>
+              <div style="margin-bottom:12px;font-family:'JetBrains Mono',monospace;font-size:0.85rem">
+                <div id="loc-display-${id}" style="color:var(--text-muted)">
+                  ${hasLocation ? `Lat: ${config.latitude.toFixed(6)}<br>Lon: ${config.longitude.toFixed(6)}` : 'Not set'}
+                </div>
+              </div>
+              <div id="loc-error-${id}" style="display:none;color:var(--warning);font-size:0.75rem;margin-bottom:8px;padding:8px;background:var(--warning-glow);border-radius:6px"></div>
+              <div id="loc-manual-${id}" style="display:none;margin-bottom:12px">
+                <div style="margin-bottom:8px">
+                  <input type="number" step="any" placeholder="Latitude" id="loc-lat-${id}" class="input" style="width:100%" value="${config.latitude || ''}">
+                  <input type="number" step="any" placeholder="Longitude" id="loc-lon-${id}" class="input" style="width:100%" value="${config.longitude || ''}">
+                </div>
+                <button class="btn btn-success" onclick="setManualLocation('${id}')" style="width:100%">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Set Coordinates
+                </button>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-${config.variant || 'info'}" onclick="getLocation('${id}')" style="flex:1">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 6.9 8 11.7z"/></svg>
+                  ${config.label || 'Get Location'}
+                </button>
+                <button class="btn btn-secondary" onclick="toggleManualLocation('${id}')" title="Enter manually">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+              </div>
+            </div>
+          `;
+          
         case 'toggle':
           return `
             <div class="card" data-id="${id}" style="${sizeStyle}"><div class="update-indicator"></div>
@@ -2518,6 +2559,95 @@
     function changeDate(id, value) {
       cards[id].config.value = value;
       sendAction(id, 'change', { value });
+    }
+
+    function changeTime(id, value) {
+      cards[id].config.value = value;
+      sendAction(id, 'change', { value });
+    }
+
+    function getLocation(id) {
+      const errorDiv = document.getElementById(`loc-error-${id}`);
+      const manualDiv = document.getElementById(`loc-manual-${id}`);
+      
+      if (!navigator.geolocation) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Geolocation not supported. Use manual input below.';
+          errorDiv.style.display = 'block';
+        }
+        if (manualDiv) manualDiv.style.display = 'block';
+        return;
+      }
+      
+      const btn = document.querySelector(`[data-id="${id}"] .btn.btn-info, [data-id="${id}"] .btn.btn-primary`);
+      if (btn) btn.textContent = 'Getting location...';
+      if (errorDiv) errorDiv.style.display = 'none';
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          cards[id].config.latitude = lat;
+          cards[id].config.longitude = lon;
+          
+          const display = document.getElementById(`loc-display-${id}`);
+          if (display) {
+            display.innerHTML = `Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}`;
+          }
+          if (btn) btn.innerHTML = `<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 6.9 8 11.7z"/></svg> ${cards[id].config.label || 'Get Location'}`;
+          if (manualDiv) manualDiv.style.display = 'none';
+          
+          sendAction(id, 'location', { latitude: lat, longitude: lon });
+        },
+        (error) => {
+          let errorMsg = 'Unable to get location. ';
+          switch(error.code) {
+            case 1: errorMsg += 'Permission denied. Check browser settings or use manual input.'; break;
+            case 2: errorMsg += 'Position unavailable. Try manual input.'; break;
+            case 3: errorMsg += 'Request timeout. Try again or use manual input.'; break;
+            default: errorMsg += error.message;
+          }
+          if (errorDiv) {
+            errorDiv.textContent = errorMsg;
+            errorDiv.style.display = 'block';
+          }
+          if (manualDiv) manualDiv.style.display = 'block';
+          if (btn) btn.innerHTML = `<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 6.9 8 11.7z"/></svg> ${cards[id].config.label || 'Get Location'}`;
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+    
+    function toggleManualLocation(id) {
+      const manualDiv = document.getElementById(`loc-manual-${id}`);
+      if (manualDiv) {
+        manualDiv.style.display = manualDiv.style.display === 'none' ? 'block' : 'none';
+      }
+    }
+    
+    function setManualLocation(id) {
+      const latInput = document.getElementById(`loc-lat-${id}`);
+      const lonInput = document.getElementById(`loc-lon-${id}`);
+      const lat = parseFloat(latInput?.value);
+      const lon = parseFloat(lonInput?.value);
+      
+      if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        alert('Please enter valid coordinates (Lat: -90 to 90, Lon: -180 to 180)');
+        return;
+      }
+      
+      cards[id].config.latitude = lat;
+      cards[id].config.longitude = lon;
+      
+      const display = document.getElementById(`loc-display-${id}`);
+      if (display) {
+        display.innerHTML = `Lat: ${lat.toFixed(6)}<br>Lon: ${lon.toFixed(6)}`;
+      }
+      
+      const errorDiv = document.getElementById(`loc-error-${id}`);
+      if (errorDiv) errorDiv.style.display = 'none';
+      
+      sendAction(id, 'location', { latitude: lat, longitude: lon });
     }
 
     function clearConsole(id) {

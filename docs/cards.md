@@ -6,7 +6,7 @@ nav_order: 3
 
 # Cards Reference
 
-ESP DashboardPlus provides 14 different card types for building your dashboard. The dashboard features a **tabbed interface** with three main sections:
+ESP DashboardPlus provides 16 different card types for building your dashboard. The dashboard features a **tabbed interface** with three main sections:
 
 - **Dashboard** - Main view with all your sensor cards and controls
 - **Console** - Full-page console with log filtering, export, and command input (tab only)
@@ -603,6 +603,48 @@ alarmTime->setCallback([](const String& value) {
 ```
 
 ---
+
+## TimeCard
+
+Time picker (HH:MM or HH:MM:SS format).
+
+### Example
+
+```cpp
+// Time only (HH:MM)
+TimeCard* wakeTime = dashboard.addTimeCard(
+    "wake", "Wake Time", false
+);
+
+// With seconds (HH:MM:SS)
+TimeCard* preciseTime = dashboard.addTimeCard(
+    "precise", "Precise Time", true
+);
+preciseTime->setCallback([](const String& value) {
+    Serial.printf("Time selected: %s\n", value.c_str());
+});
+```
+
+---
+
+## LocationCard
+
+Browser geolocation picker for latitude/longitude.
+
+### Example
+
+```cpp
+LocationCard* locCard = dashboard.addLocationCard(
+    "location", "Device Location", "Get Current Location"
+);
+
+locCard->setCallback([](float lat, float lon) {
+    Serial.printf("Location: %.6f, %.6f\n", lat, lon);
+});
+
+// Programmatic update
+dashboard.updateLocationCard("location", 51.5074, -0.1278);
+```
 
 ## TimezoneCard
 

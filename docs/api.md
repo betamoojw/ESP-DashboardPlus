@@ -219,11 +219,25 @@ DateCard* addDateCard(const String& id, const String& title,
                       bool includeTime = false)
 ```
 
+### addTimeCard()
+
+```cpp
+TimeCard* addTimeCard(const String& id, const String& title, 
+                      bool includeSeconds = false)
+```
+
 ### addTimezoneCard()
 
 ```cpp
 TimezoneCard* addTimezoneCard(const String& id, const String& title, 
                               const String& label = "Get Browser Timezone")
+```
+
+### addLocationCard()
+
+```cpp
+LocationCard* addLocationCard(const String& id, const String& title, 
+                              const String& label = "Get Current Location")
 ```
 
 ### addStatusCard()
@@ -299,6 +313,18 @@ void updateDropdownCard(const String& id, const String& value)
 
 ```cpp
 void updateDateCard(const String& id, const String& value)
+```
+
+### updateTimeCard()
+
+```cpp
+void updateTimeCard(const String& id, const String& value)
+```
+
+### updateLocationCard()
+
+```cpp
+void updateLocationCard(const String& id, float latitude, float longitude)
 ```
 
 ### updateLinkCard()

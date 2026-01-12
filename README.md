@@ -16,13 +16,13 @@ A real-time, on-device web dashboard library for ESP32 microcontrollers. Create 
 
 - **✏️ Customizabe** - Adjust to your brand / product with own themes / custom titles. 
 - **🔌 Real-time Updates** - WebSocket-based communication for instant UI updates
-- **📊 14 Card Types** - Stats, charts, gauges, toggles, sliders, buttons, and more
+- **📊 16 Card Types** - Stats, charts, gauges, toggles, sliders, buttons, time/location pickers, and more
 - **🎨 Modern Dark & Light Theme** - Industrial IoT aesthetic with light/dark mode support
 - **📱 Responsive Design** - Works on desktop and mobile browsers
 - **🗂️ Tabbed Interface** - Dashboard, Console, and OTA tabs in a single HTML file
 - **🔄 OTA Updates** - Dedicated firmware update tab with device info
 - **📝 Console Logging** - Full-page console tab with filtering, export, and command input
-- **⚡ Optimized** - Gzip-compressed HTML stored in PROGMEM (~20KB)
+- **⚡ Optimized** - Gzip-compressed HTML stored in PROGMEM (~22KB)
 - **📈 Multi-Series Charts** - Display multiple data lines per chart with legends
 - **📦 Card Groups** - Organize cards into collapsible groups with headers
 - **⚖️ Card Ordering** - Control display order with weight property
@@ -121,7 +121,9 @@ void loop() {
 | **DropdownCard** | Select menu | Mode selection, options |
 | **ColorPickerCard** | Color picker with presets | RGB LED control |
 | **DateCard** | Date/time picker | Scheduling, alarms |
+| **TimeCard** | Time picker (HH:MM or HH:MM:SS) | Alarm time, schedule time |
 | **TimezoneCard** | Browser timezone detection | Time synchronization |
+| **LocationCard** | GPS/browser geolocation | Position tracking, geofencing |
 | **StatusCard** | Icon + status message | Connection status, system health |
 
 ### Tabs (not cards)

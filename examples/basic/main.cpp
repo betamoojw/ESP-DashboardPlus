@@ -247,9 +247,23 @@ void setup() {
         Serial.printf("Selected date: %s\n", value.c_str());
     });
     
-    DateCard* alarmTime = dashboard.addDateCard("alarm", "Alarm Time", true);  // Include time
+    DateCard* alarmTime = dashboard.addDateCard("alarm", "Alarm DateTime", true);  // Include time
     alarmTime->setCallback([](const String& value) {
         Serial.printf("Alarm set for: %s\n", value.c_str());
+    });
+    
+    // ========================================
+    // TIME CARD - Time picker (HH:MM or HH:MM:SS)
+    // ========================================
+    
+    TimeCard* wakeTime = dashboard.addTimeCard("wake-time", "Wake Time", false);
+    wakeTime->setCallback([](const String& value) {
+        Serial.printf("Wake time set: %s\n", value.c_str());
+    });
+    
+    TimeCard* preciseTime = dashboard.addTimeCard("precise-time", "Precise Time", true);  // Include seconds
+    preciseTime->setCallback([](const String& value) {
+        Serial.printf("Precise time: %s\n", value.c_str());
     });
     
     // ========================================
@@ -260,6 +274,15 @@ void setup() {
     tzCard->setCallback([](const String& tz, int offset, const String& offsetStr) {
         selectedTimezone = tz;
         Serial.printf("Timezone: %s (offset: %d min, %s)\n", tz.c_str(), offset, offsetStr.c_str());
+    });
+    
+    // ========================================
+    // LOCATION CARD - Browser geolocation
+    // ========================================
+    
+    LocationCard* locCard = dashboard.addLocationCard("location", "Device Location", "Get Current Location");
+    locCard->setCallback([](float lat, float lon) {
+        Serial.printf("Location received: %.6f, %.6f\n", lat, lon);
     });
     
     // ========================================

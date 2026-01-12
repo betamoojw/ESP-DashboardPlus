@@ -11,13 +11,13 @@ A real-time, on-device web dashboard library for ESP32 microcontrollers.
 ## Features
 
 - **🔌 Real-time Updates** - WebSocket-based communication for instant UI updates
-- **📊 14 Card Types** - Stats, charts, gauges, toggles, sliders, buttons, and more
+- **📊 16 Card Types** - Stats, charts, gauges, toggles, sliders, buttons, time/location pickers, and more
 - **🎨 Modern Theme** - Industrial IoT aesthetic with light/dark mode support
 - **📱 Responsive Design** - Works on desktop and mobile browsers
 - **🗂️ Tabbed Interface** - Dashboard, Console, and OTA tabs in a single file
 - **🔄 OTA Updates** - Dedicated firmware update tab (not a card)
 - **📝 Console Logging** - Full-page console tab with filtering and command input
-- **⚡ Optimized** - Gzip-compressed HTML stored in PROGMEM (~20KB)
+- **⚡ Optimized** - Gzip-compressed HTML stored in PROGMEM (~22KB)
 - **📈 Multi-Series Charts** - Multiple data lines per chart with legends
 - **📦 Card Groups** - Organize cards into groups
 - **⚖️ Card Ordering** - Control display order with weight property

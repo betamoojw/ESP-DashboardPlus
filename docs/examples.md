@@ -405,6 +405,59 @@ void loop() {
 
 ---
 
+## Time and Location Cards
+
+Use TimeCard for time selection and LocationCard for GPS/browser geolocation.
+
+```cpp
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include "ESPDashboardPlus.h"
+#include "dashboard_html.h"
+
+AsyncWebServer server(80);
+ESPDashboardPlus dashboard("Time & Location Demo");
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin("SSID", "PASSWORD");
+    while (WiFi.status() != WL_CONNECTED) delay(500);
+    
+    dashboard.begin(&server, DASHBOARD_HTML_DATA, DASHBOARD_HTML_SIZE);
+    
+    // Time picker (HH:MM)
+    TimeCard* wakeTime = dashboard.addTimeCard("wake", "Wake Time", false);
+    wakeTime->setCallback([](const String& value) {
+        Serial.printf("Wake time: %s\n", value.c_str());
+    });
+    
+    // Time picker with seconds (HH:MM:SS)
+    TimeCard* preciseTime = dashboard.addTimeCard("precise", "Precise Time", true);
+    preciseTime->setCallback([](const String& value) {
+        Serial.printf("Precise time: %s\n", value.c_str());
+    });
+    
+    // Location picker (uses browser geolocation)
+    LocationCard* locCard = dashboard.addLocationCard("location", "Device Location", "Get My Location");
+    locCard->setCallback([](float lat, float lon) {
+        Serial.printf("Location: %.6f, %.6f\n", lat, lon);
+        // You could save this to EEPROM or use for geofencing
+    });
+    
+    // Status card showing location
+    StatusCard* locStatus = dashboard.addStatusCard("loc-status", "Location Status", StatusIcon::INFO);
+    locStatus->setStatus(StatusIcon::INFO, CardVariant::PRIMARY, "Awaiting Location", "Click button to detect");
+    
+    server.begin();
+}
+
+void loop() {
+    dashboard.loop();
+}
+```
+
+---
+
 ## Complete All-Cards Example
 
 See the `examples/basic/main.cpp` in the library for a complete example demonstrating all 14 card types, multi-series charts, card groups, ordering, and sizing.
